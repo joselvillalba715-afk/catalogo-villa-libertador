@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catálogo — Distribuidora Villa Libertador</title>
+  <meta name="description" content="Catálogo de productos, precios y promociones de Distribuidora Villa Libertador." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="top-bar">
+    <div class="top-bar__inner">
+      <div class="brand">
+        <p class="brand__name">Villa Libertador</p>
+        <span class="brand__tag">Distribuidora · Córdoba</span>
+      </div>
+      <p class="top-bar__updated" id="ultima-actualizacion"></p>
+    </div>
+  </header>
+
+  <nav class="cat-nav" id="cat-nav" aria-label="Categorías">
+    <div class="cat-nav__scroll" id="cat-nav-scroll">
+      <!-- Se completa por JS -->
+    </div>
+  </nav>
+
+  <main id="catalogo">
+    <p class="state-message" id="estado">Cargando catálogo…</p>
+  </main>
+
+  <a
+    class="wa-float"
+    id="wa-float"
+    href="#"
+    target="_blank"
+    rel="noopener"
+    aria-label="Hacer pedido por WhatsApp"
+  >
+    Pedir por WhatsApp
+  </a>
+
+  <footer class="site-footer">
+    Distribuidora Villa Libertador SRL · Barrio Santa Isabel Segunda, Córdoba
+    <br />
+    Catálogo actualizado por el equipo. Para pedidos, escribinos por
+    <a id="wa-footer-link" href="#" target="_blank" rel="noopener">WhatsApp</a>.
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
