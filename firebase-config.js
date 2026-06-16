@@ -9,6 +9,3 @@ export const firebaseConfig = {
 
 export const WHATSAPP_NUMBER = "5493517509439";
 export const BUSINESS_NAME = "Distribuidora Villa Libertador";
-
-// Nombre del negocio (aparece en el encabezado del catálogo)
-export const BUSINESS_NAME = "Distribuidora Villa Libertador";
