@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-.
+
   <header class="top-bar">
     <div class="top-bar__inner">
       <div class="brand">
@@ -32,21 +32,31 @@
     <p class="state-message" id="estado">Cargando catálogo…</p>
   </main>
 
-  <a
-    class="wa-float"
-    id="wa-float"
-    href="#"
-    target="_blank"
-    rel="noopener"
-    aria-label="Hacer pedido por WhatsApp"
-  >
-    Pedir por WhatsApp
-  </a>
+  <button class="cart-float" id="cart-float" aria-label="Ver mi pedido" type="button">
+    <span class="cart-float__icon" aria-hidden="true">🛒</span>
+    <span class="cart-float__label">Mi pedido</span>
+    <span class="cart-float__badge hidden" id="cart-badge">0</span>
+  </button>
+
+  <div class="cart-backdrop hidden" id="cart-backdrop">
+    <div class="cart-drawer" role="dialog" aria-label="Carrito de pedido">
+      <div class="cart-drawer__header">
+        <h2>Mi pedido</h2>
+        <button class="icon-btn" id="cart-close" type="button">Cerrar</button>
+      </div>
+      <div class="cart-drawer__body" id="cart-items">
+        <!-- Se completa por JS -->
+      </div>
+      <div class="cart-drawer__footer" id="cart-footer">
+        <!-- Se completa por JS -->
+      </div>
+    </div>
+  </div>
 
   <footer class="site-footer">
     Distribuidora Villa Libertador SRL · Barrio Santa Isabel Segunda, Córdoba
     <br />
-    Catálogo actualizado por el equipo. Para pedidos, escribinos por
+    ¿Tenés una consulta? Escribinos por
     <a id="wa-footer-link" href="#" target="_blank" rel="noopener">WhatsApp</a>.
   </footer>
 
