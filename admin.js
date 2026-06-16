@@ -109,6 +109,7 @@ formNuevo.addEventListener("submit", async (e) => {
   nuevoError.textContent = "";
 
   const nombre = document.getElementById("n-nombre").value.trim();
+  const codigo = document.getElementById("n-codigo").value.trim();
   const categoria = document.getElementById("n-categoria").value.trim();
   const precio = parseFloat(document.getElementById("n-precio").value);
   const orden = parseInt(document.getElementById("n-orden").value, 10) || 0;
@@ -123,6 +124,7 @@ formNuevo.addEventListener("submit", async (e) => {
   try {
     const docRef = await addDoc(collection(db, "productos"), {
       nombre,
+      codigo,
       categoria,
       precio,
       orden,
@@ -158,7 +160,20 @@ const productosQuery = query(
 onSnapshot(productosQuery, (snapshot) => {
   productosCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
   renderLista();
+  actualizarListaCategorias();
 });
+
+function actualizarListaCategorias() {
+  const datalist = document.getElementById("lista-categorias");
+  const categorias = [...new Set(productosCache.map((p) => p.categoria).filter(Boolean))];
+  categorias.sort((a, b) => a.localeCompare(b, "es"));
+  datalist.innerHTML = "";
+  for (const cat of categorias) {
+    const option = document.createElement("option");
+    option.value = cat;
+    datalist.appendChild(option);
+  }
+}
 
 function renderLista() {
   listaProductos.innerHTML = "";
@@ -185,7 +200,7 @@ function renderLista() {
 
     const name = document.createElement("p");
     name.className = "admin-product-row__name";
-    name.textContent = p.nombre;
+    name.textContent = p.codigo ? `[${p.codigo}] ${p.nombre}` : p.nombre;
     info.appendChild(name);
 
     const meta = document.createElement("p");
@@ -245,6 +260,7 @@ function abrirModalEditar(p) {
 
   document.getElementById("e-id").value = p.id;
   document.getElementById("e-nombre").value = p.nombre || "";
+  document.getElementById("e-codigo").value = p.codigo || "";
   document.getElementById("e-categoria").value = p.categoria || "";
   document.getElementById("e-precio").value = p.precio || 0;
   document.getElementById("e-orden").value = p.orden || 0;
@@ -273,6 +289,7 @@ formEditar.addEventListener("submit", async (e) => {
 
   const datos = {
     nombre: document.getElementById("e-nombre").value.trim(),
+    codigo: document.getElementById("e-codigo").value.trim(),
     categoria: document.getElementById("e-categoria").value.trim(),
     precio: parseFloat(document.getElementById("e-precio").value),
     orden: parseInt(document.getElementById("e-orden").value, 10) || 0,
