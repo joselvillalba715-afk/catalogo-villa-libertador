@@ -6,6 +6,7 @@ import {
   signInWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
+  sendPasswordResetEmail,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore,
@@ -38,6 +39,13 @@ const loginError = document.getElementById("login-error");
 const adminShell = document.getElementById("admin-shell");
 const btnLogout = document.getElementById("btn-logout");
 
+const resetCard = document.getElementById("reset-card");
+const resetForm = document.getElementById("reset-form");
+const resetError = document.getElementById("reset-error");
+const resetSuccess = document.getElementById("reset-success");
+const linkOlvidePassword = document.getElementById("link-olvide-password");
+const linkVolverLogin = document.getElementById("link-volver-login");
+
 const formNuevo = document.getElementById("form-nuevo");
 const nuevoError = document.getElementById("nuevo-error");
 const nPromoCheckbox = document.getElementById("n-promo");
@@ -68,6 +76,38 @@ loginForm.addEventListener("submit", async (e) => {
 });
 
 btnLogout.addEventListener("click", () => signOut(auth));
+
+// ---------- Recuperar contraseña ----------
+linkOlvidePassword.addEventListener("click", (e) => {
+  e.preventDefault();
+  resetError.textContent = "";
+  resetSuccess.textContent = "";
+  resetForm.reset();
+  loginCard.classList.add("hidden");
+  resetCard.classList.remove("hidden");
+});
+
+linkVolverLogin.addEventListener("click", (e) => {
+  e.preventDefault();
+  resetCard.classList.add("hidden");
+  loginCard.classList.remove("hidden");
+});
+
+resetForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  resetError.textContent = "";
+  resetSuccess.textContent = "";
+  const email = document.getElementById("reset-email").value.trim();
+  try {
+    await sendPasswordResetEmail(auth, email);
+    resetSuccess.textContent =
+      "Listo. Revisá tu casilla de email (también la carpeta de spam) y seguí el link para crear una nueva contraseña.";
+  } catch (err) {
+    console.error(err);
+    resetError.textContent =
+      "No se pudo enviar el email. Revisá que el email sea el correcto.";
+  }
+});
 
 onAuthStateChanged(auth, (user) => {
   if (user) {
