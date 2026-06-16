@@ -950,3 +950,20 @@ main {
   font-size: 1.3rem;
   color: var(--primary);
 }
+
+/* Estilos para el nuevo Banner */
+.main-banner {
+  width: 100%;
+  max-width: 1200px; /* Evita que en pantallas gigantes se estire demasiado */
+  margin: 0 auto;    /* Lo centra en la pantalla */
+  padding: 10px 0;   /* Le da un pequeño espacio arriba y abajo */
+  overflow: hidden;
+}
+
+.banner-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px; /* Le da una terminación redondeada muy estética */
+  object-fit: cover;
+}
