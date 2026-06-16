@@ -49,8 +49,20 @@
             <input type="text" id="n-nombre" required />
           </div>
           <div class="field">
+            <label for="n-codigo">Código (sistema de gestión)</label>
+            <input type="text" id="n-codigo" placeholder="Ej: COC225" />
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
             <label for="n-categoria">Categoría</label>
-            <input type="text" id="n-categoria" required placeholder="Ej: Gaseosas" />
+            <input type="text" id="n-categoria" required list="lista-categorias" placeholder="Elegí o escribí una nueva" autocomplete="off" />
+            <datalist id="lista-categorias"></datalist>
+          </div>
+          <div class="field">
+            <label for="n-orden">Orden</label>
+            <input type="number" id="n-orden" min="0" step="1" value="0" />
           </div>
         </div>
 
@@ -58,10 +70,6 @@
           <div class="field">
             <label for="n-precio">Precio</label>
             <input type="number" id="n-precio" min="0" step="0.01" required />
-          </div>
-          <div class="field">
-            <label for="n-orden">Orden</label>
-            <input type="number" id="n-orden" min="0" step="1" value="0" />
           </div>
         </div>
         <p class="helper-text">El orden define la posición dentro de la categoría (menor número = aparece primero). La categoría con menor orden de su primer producto se muestra primero en el menú.</p>
@@ -119,8 +127,19 @@
             <input type="text" id="e-nombre" required />
           </div>
           <div class="field">
+            <label for="e-codigo">Código (sistema de gestión)</label>
+            <input type="text" id="e-codigo" placeholder="Ej: COC225" />
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
             <label for="e-categoria">Categoría</label>
-            <input type="text" id="e-categoria" required />
+            <input type="text" id="e-categoria" required list="lista-categorias" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="e-orden">Orden</label>
+            <input type="number" id="e-orden" min="0" step="1" />
           </div>
         </div>
 
@@ -128,10 +147,6 @@
           <div class="field">
             <label for="e-precio">Precio</label>
             <input type="number" id="e-precio" min="0" step="0.01" required />
-          </div>
-          <div class="field">
-            <label for="e-orden">Orden</label>
-            <input type="number" id="e-orden" min="0" step="1" />
           </div>
         </div>
 
