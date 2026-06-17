@@ -7,6 +7,8 @@ import {
   query,
   orderBy,
   onSnapshot,
+  addDoc,
+  serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const app = initializeApp(firebaseConfig);
@@ -23,6 +25,14 @@ const elCartBackdrop = document.getElementById("cart-backdrop");
 const elCartClose = document.getElementById("cart-close");
 const elCartItems = document.getElementById("cart-items");
 const elCartFooter = document.getElementById("cart-footer");
+
+const elCartViewItems = document.getElementById("cart-view-items");
+const elCartViewDatos = document.getElementById("cart-view-datos");
+const elCartDrawerTitle = document.getElementById("cart-drawer-title");
+const elFormDatosCliente = document.getElementById("form-datos-cliente");
+const elDatosClienteError = document.getElementById("datos-cliente-error");
+const elBtnVolverItems = document.getElementById("btn-volver-items");
+const elBtnConfirmarPedido = document.getElementById("btn-confirmar-pedido");
 
 // ----- Links de WhatsApp -----
 const waBase = `https://wa.me/${WHATSAPP_NUMBER}`;
@@ -137,7 +147,7 @@ function totalCarrito() {
   );
 }
 
-function mensajeWhatsAppCarrito() {
+function mensajeWhatsAppCarrito(nombreCliente) {
   const items = Object.values(carrito);
   const lineas = items.map(
     (it) =>
@@ -146,11 +156,82 @@ function mensajeWhatsAppCarrito() {
       )}`
   );
   const texto =
-    `Hola! Quiero hacer este pedido:\n\n` +
+    `Hola! Soy ${nombreCliente} y quiero hacer este pedido:\n\n` +
     lineas.join("\n") +
     `\n\nTotal: ${fmt.format(totalCarrito())}`;
   return `${waBase}?text=${encodeURIComponent(texto)}`;
 }
+
+// ----- Vista 1 <-> Vista 2 del drawer -----
+
+function mostrarVistaItems() {
+  elCartDrawerTitle.textContent = "Mi pedido";
+  elCartViewItems.classList.remove("hidden");
+  elCartViewDatos.classList.add("hidden");
+}
+
+function mostrarVistaDatos() {
+  elDatosClienteError.textContent = "";
+  elCartDrawerTitle.textContent = "Tus datos";
+  elCartViewItems.classList.add("hidden");
+  elCartViewDatos.classList.remove("hidden");
+}
+
+elBtnVolverItems.addEventListener("click", mostrarVistaItems);
+
+// ----- Confirmación del pedido: guarda en Firestore y abre WhatsApp -----
+
+elFormDatosCliente.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  elDatosClienteError.textContent = "";
+
+  const nombreCliente = document.getElementById("cliente-nombre").value.trim();
+  const whatsappCliente = document
+    .getElementById("cliente-whatsapp")
+    .value.trim()
+    .replace(/[^0-9]/g, "");
+
+  if (!nombreCliente || !whatsappCliente) {
+    elDatosClienteError.textContent = "Completá tu nombre y tu número de WhatsApp.";
+    return;
+  }
+
+  const items = Object.entries(carrito).map(([id, it]) => ({
+    productoId: id,
+    nombre: it.nombre,
+    cantidad: it.cantidad,
+    precioUnitario: it.precioUnitario,
+    subtotal: it.precioUnitario * it.cantidad,
+  }));
+
+  elBtnConfirmarPedido.disabled = true;
+  elBtnConfirmarPedido.textContent = "Enviando…";
+
+  try {
+    await addDoc(collection(db, "pedidos"), {
+      clienteNombre: nombreCliente,
+      clienteWhatsapp: whatsappCliente,
+      items,
+      total: totalCarrito(),
+      creadoEn: serverTimestamp(),
+    });
+
+    const link = mensajeWhatsAppCarrito(nombreCliente);
+    window.open(link, "_blank", "noopener");
+
+    vaciarCarrito();
+    elFormDatosCliente.reset();
+    elCartBackdrop.classList.add("hidden");
+    mostrarVistaItems();
+  } catch (err) {
+    console.error(err);
+    elDatosClienteError.textContent =
+      "No se pudo registrar el pedido. Probá de nuevo en unos segundos.";
+  } finally {
+    elBtnConfirmarPedido.disabled = false;
+    elBtnConfirmarPedido.textContent = "Confirmar y enviar por WhatsApp";
+  }
+});
 
 function renderCarrito() {
   const items = Object.entries(carrito);
@@ -212,12 +293,11 @@ function renderCarrito() {
   totalRow.innerHTML = `<span>Total</span><span>${fmt.format(totalCarrito())}</span>`;
   elCartFooter.appendChild(totalRow);
 
-  const btnEnviar = document.createElement("a");
+  const btnEnviar = document.createElement("button");
+  btnEnviar.type = "button";
   btnEnviar.className = "btn btn-primary btn-block";
-  btnEnviar.textContent = "Enviar pedido por WhatsApp";
-  btnEnviar.href = mensajeWhatsAppCarrito();
-  btnEnviar.target = "_blank";
-  btnEnviar.rel = "noopener";
+  btnEnviar.textContent = "Continuar pedido";
+  btnEnviar.addEventListener("click", mostrarVistaDatos);
   elCartFooter.appendChild(btnEnviar);
 
   const btnVaciar = document.createElement("button");
@@ -231,6 +311,7 @@ function renderCarrito() {
 // ----- Apertura / cierre del panel -----
 elCartFloat.addEventListener("click", () => {
   renderCarrito();
+  mostrarVistaItems();
   elCartBackdrop.classList.remove("hidden");
 });
 
