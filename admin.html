@@ -147,7 +147,27 @@
           <h2 style="margin:0;">Pedidos recibidos</h2>
           <button class="btn btn-secondary" id="btn-exportar-pedidos">Exportar a CSV</button>
         </div>
+
+        <div class="order-filters">
+          <div class="field-row">
+            <div class="field">
+              <label for="filtro-desde">Desde</label>
+              <input type="date" id="filtro-desde" />
+            </div>
+            <div class="field">
+              <label for="filtro-hasta">Hasta</label>
+              <input type="date" id="filtro-hasta" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="filtro-cliente">Buscar por nombre de cliente</label>
+            <input type="text" id="filtro-cliente" placeholder="Ej: Juan Pérez" autocomplete="off" />
+          </div>
+          <button type="button" class="btn btn-secondary" id="btn-limpiar-filtros">Limpiar filtros</button>
+        </div>
+
         <p class="helper-text" id="pedidos-vacio">Todavía no llegaron pedidos.</p>
+        <p class="helper-text hidden" id="pedidos-sin-resultados">Ningún pedido coincide con el filtro aplicado.</p>
         <div class="orders-list" id="lista-pedidos"></div>
       </div>
     </div>
