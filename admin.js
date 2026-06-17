@@ -119,7 +119,24 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// ---------- Mostrar/ocultar campos de promo ----------
+// ---------- Pestañas ----------
+const adminTabs = document.querySelectorAll(".admin-tab");
+const tabCatalogo = document.getElementById("tab-catalogo");
+const tabPedidos = document.getElementById("tab-pedidos");
+
+adminTabs.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    adminTabs.forEach((b) => b.classList.remove("admin-tab--active"));
+    btn.classList.add("admin-tab--active");
+    if (btn.dataset.tab === "catalogo") {
+      tabCatalogo.classList.remove("hidden");
+      tabPedidos.classList.add("hidden");
+    } else {
+      tabCatalogo.classList.add("hidden");
+      tabPedidos.classList.remove("hidden");
+    }
+  });
+});
 nPromoCheckbox.addEventListener("change", () => {
   nPromoFields.classList.toggle("hidden", !nPromoCheckbox.checked);
 });
@@ -377,3 +394,171 @@ async function eliminarProducto(p) {
     alert("No se pudo eliminar el producto.");
   }
 }
+
+// ============================================================
+// PEDIDOS
+// ============================================================
+
+const listaPedidos = document.getElementById("lista-pedidos");
+const pedidosVacio = document.getElementById("pedidos-vacio");
+const btnExportarPedidos = document.getElementById("btn-exportar-pedidos");
+
+let pedidosCache = [];
+
+const pedidosQuery = query(collection(db, "pedidos"), orderBy("creadoEn", "desc"));
+
+onSnapshot(
+  pedidosQuery,
+  (snapshot) => {
+    pedidosCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderPedidos();
+  },
+  (err) => {
+    console.error(err);
+  }
+);
+
+function formatearFechaHora(timestamp) {
+  if (!timestamp || !timestamp.toDate) return "—";
+  const fecha = timestamp.toDate();
+  const fechaStr = fecha.toLocaleDateString("es-AR");
+  const horaStr = fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+  return `${fechaStr} · ${horaStr}`;
+}
+
+function renderPedidos() {
+  listaPedidos.innerHTML = "";
+  pedidosVacio.classList.toggle("hidden", pedidosCache.length > 0);
+
+  for (const pedido of pedidosCache) {
+    const card = document.createElement("div");
+    card.className = "order-card";
+
+    const header = document.createElement("button");
+    header.type = "button";
+    header.className = "order-card__header";
+
+    const headerInfo = document.createElement("div");
+    headerInfo.className = "order-card__header-info";
+
+    const fechaHora = document.createElement("span");
+    fechaHora.className = "order-card__datetime";
+    fechaHora.textContent = formatearFechaHora(pedido.creadoEn);
+    headerInfo.appendChild(fechaHora);
+
+    const cliente = document.createElement("span");
+    cliente.className = "order-card__client";
+    cliente.textContent = `${pedido.clienteNombre || "Sin nombre"} · ${pedido.clienteWhatsapp || "Sin número"}`;
+    headerInfo.appendChild(cliente);
+
+    header.appendChild(headerInfo);
+
+    const total = document.createElement("span");
+    total.className = "order-card__total";
+    total.textContent = fmt.format(pedido.total || 0);
+    header.appendChild(total);
+
+    const chevron = document.createElement("span");
+    chevron.className = "order-card__chevron";
+    chevron.textContent = "▾";
+    header.appendChild(chevron);
+
+    const detail = document.createElement("div");
+    detail.className = "order-card__detail hidden";
+
+    const tabla = document.createElement("table");
+    tabla.className = "order-detail-table";
+    const thead = document.createElement("thead");
+    thead.innerHTML = "<tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr>";
+    tabla.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const item of pedido.items || []) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${item.nombre}</td>
+        <td>${item.cantidad}</td>
+        <td>${fmt.format(item.precioUnitario)}</td>
+        <td>${fmt.format(item.subtotal)}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+    tabla.appendChild(tbody);
+    detail.appendChild(tabla);
+
+    const waLink = document.createElement("a");
+    waLink.className = "btn btn-secondary";
+    waLink.style.marginTop = "10px";
+    waLink.style.display = "inline-block";
+    waLink.textContent = "Abrir chat de WhatsApp";
+    waLink.href = `https://wa.me/${pedido.clienteWhatsapp}`;
+    waLink.target = "_blank";
+    waLink.rel = "noopener";
+    detail.appendChild(waLink);
+
+    header.addEventListener("click", () => {
+      detail.classList.toggle("hidden");
+      chevron.textContent = detail.classList.contains("hidden") ? "▾" : "▴";
+    });
+
+    card.appendChild(header);
+    card.appendChild(detail);
+    listaPedidos.appendChild(card);
+  }
+}
+
+// ----- Exportar a CSV -----
+
+function escaparCSV(valor) {
+  const texto = String(valor ?? "");
+  if (texto.includes(",") || texto.includes('"') || texto.includes("\n")) {
+    return `"${texto.replace(/"/g, '""')}"`;
+  }
+  return texto;
+}
+
+btnExportarPedidos.addEventListener("click", () => {
+  if (pedidosCache.length === 0) {
+    alert("No hay pedidos para exportar.");
+    return;
+  }
+
+  const filas = [
+    ["Fecha", "Hora", "Cliente", "WhatsApp", "Producto", "Cantidad", "Precio unitario", "Subtotal", "Total del pedido"],
+  ];
+
+  for (const pedido of pedidosCache) {
+    const fecha = pedido.creadoEn?.toDate ? pedido.creadoEn.toDate() : null;
+    const fechaStr = fecha ? fecha.toLocaleDateString("es-AR") : "";
+    const horaStr = fecha ? fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "";
+
+    const items = pedido.items && pedido.items.length > 0 ? pedido.items : [{}];
+
+    items.forEach((item, idx) => {
+      filas.push([
+        fechaStr,
+        horaStr,
+        pedido.clienteNombre || "",
+        pedido.clienteWhatsapp || "",
+        item.nombre || "",
+        item.cantidad ?? "",
+        item.precioUnitario ?? "",
+        item.subtotal ?? "",
+        idx === 0 ? pedido.total ?? "" : "",
+      ]);
+    });
+  }
+
+  const csv = filas.map((fila) => fila.map(escaparCSV).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  const hoy = new Date().toISOString().slice(0, 10);
+  a.download = `pedidos-villa-libertador-${hoy}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
