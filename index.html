@@ -12,17 +12,20 @@
 </head>
 <body>
 
-  <div style="display: none;">
-    <p id="ultima-actualizacion"></p>
-  </div>
-
-  <div class="main-banner">
-    <img src="images/banner-distribuidora.png" alt="Distribuidora Villa Libertador" class="banner-img" />
-  </div>
+  <header class="top-bar">
+    <div class="top-bar__inner">
+      <div class="brand">
+        <p class="brand__name">Villa Libertador</p>
+        <span class="brand__tag">Distribuidora · Córdoba</span>
+      </div>
+      <p class="top-bar__updated" id="ultima-actualizacion"></p>
+    </div>
+  </header>
 
   <nav class="cat-nav" id="cat-nav" aria-label="Categorías">
     <div class="cat-nav__scroll" id="cat-nav-scroll">
-      </div>
+      <!-- Se completa por JS -->
+    </div>
   </nav>
 
   <main id="catalogo">
@@ -42,13 +45,17 @@
         <button class="icon-btn" id="cart-close" type="button">Cerrar</button>
       </div>
 
+      <!-- Vista 1: items del carrito -->
       <div id="cart-view-items">
         <div class="cart-drawer__body" id="cart-items">
-          </div>
+          <!-- Se completa por JS -->
+        </div>
         <div class="cart-drawer__footer" id="cart-footer">
-          </div>
+          <!-- Se completa por JS -->
+        </div>
       </div>
 
+      <!-- Vista 2: datos del cliente -->
       <div id="cart-view-datos" class="hidden">
         <div class="cart-drawer__body">
           <p class="helper-text">Para identificar tu pedido, contanos quién lo hace:</p>
@@ -60,6 +67,16 @@
             <div class="field">
               <label for="cliente-whatsapp">Tu número de WhatsApp</label>
               <input type="tel" id="cliente-whatsapp" required placeholder="Ej: 3517509439" />
+            </div>
+            <div class="field">
+              <label for="cliente-pago">Forma de pago</label>
+              <select id="cliente-pago" required>
+                <option value="" disabled selected>Elegí una opción</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="QR">QR</option>
+                <option value="Transferencia">Transferencia</option>
+                <option value="Débito">Débito</option>
+              </select>
             </div>
             <p class="error-text" id="datos-cliente-error"></p>
           </form>
@@ -75,7 +92,7 @@
   </div>
 
   <footer class="site-footer">
-    Distribuidora Villa Libertador SRL · Armada Argentina 2736, Barrio Santa Isabel Segunda, Córdoba
+    Distribuidora Villa Libertador SRL · Barrio Santa Isabel Segunda, Córdoba
     <br />
     ¿Tenés una consulta? Escribinos por
     <a id="wa-footer-link" href="#" target="_blank" rel="noopener">WhatsApp</a>.
