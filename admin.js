@@ -4,6 +4,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
   sendPasswordResetEmail,
@@ -18,6 +19,7 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  getDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getStorage,
@@ -45,6 +47,12 @@ const resetError = document.getElementById("reset-error");
 const resetSuccess = document.getElementById("reset-success");
 const linkOlvidePassword = document.getElementById("link-olvide-password");
 const linkVolverLogin = document.getElementById("link-volver-login");
+
+const registroCard = document.getElementById("registro-card");
+const registroForm = document.getElementById("registro-form");
+const registroError = document.getElementById("registro-error");
+const linkCrearCuenta = document.getElementById("link-crear-cuenta");
+const linkVolverLoginRegistro = document.getElementById("link-volver-login-registro");
 
 const formNuevo = document.getElementById("form-nuevo");
 const nuevoError = document.getElementById("nuevo-error");
@@ -106,6 +114,53 @@ resetForm.addEventListener("submit", async (e) => {
     console.error(err);
     resetError.textContent =
       "No se pudo enviar el email. Revisá que el email sea el correcto.";
+  }
+});
+
+// ---------- Crear cuenta (solo emails autorizados) ----------
+linkCrearCuenta.addEventListener("click", (e) => {
+  e.preventDefault();
+  registroError.textContent = "";
+  registroForm.reset();
+  loginCard.classList.add("hidden");
+  registroCard.classList.remove("hidden");
+});
+
+linkVolverLoginRegistro.addEventListener("click", (e) => {
+  e.preventDefault();
+  registroCard.classList.add("hidden");
+  loginCard.classList.remove("hidden");
+});
+
+registroForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  registroError.textContent = "";
+
+  const email = document.getElementById("registro-email").value.trim().toLowerCase();
+  const password = document.getElementById("registro-password").value;
+
+  try {
+    // Verificamos que el email esté en la lista de autorizados antes de crear la cuenta
+    const refAutorizado = doc(db, "emailsAutorizados", email);
+    const snapAutorizado = await getDoc(refAutorizado);
+
+    if (!snapAutorizado.exists()) {
+      registroError.textContent =
+        "Este email no está autorizado para crear una cuenta. Pedile al administrador que lo agregue.";
+      return;
+    }
+
+    await createUserWithEmailAndPassword(auth, email, password);
+    // Si el alta funciona, onAuthStateChanged va a mostrar el panel automáticamente
+  } catch (err) {
+    console.error(err);
+    if (err.code === "auth/email-already-in-use") {
+      registroError.textContent = "Ya existe una cuenta con ese email. Iniciá sesión normalmente.";
+    } else if (err.code === "auth/weak-password") {
+      registroError.textContent = "La contraseña debe tener al menos 6 caracteres.";
+    } else {
+      registroError.textContent = "No se pudo crear la cuenta. Probá de nuevo.";
+    }
   }
 });
 
