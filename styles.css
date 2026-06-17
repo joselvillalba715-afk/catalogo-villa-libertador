@@ -1131,6 +1131,61 @@ main {
   color: #b8860b;
 }
 
+/* ============================================================
+   IMPORTACIÓN DE PRODUCTOS DESDE CSV
+   ============================================================ */
+
+.modal--ancho {
+  max-width: 720px;
+}
+
+.import-table-wrap {
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.import-table th {
+  position: sticky;
+  top: 0;
+  background: var(--muted-bg);
+  text-align: left;
+  padding: 8px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-soft);
+}
+
+.import-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.import-row--nuevo {
+  background: #f3faf1;
+}
+
+.import-row--existente {
+  background: #fdf8ea;
+}
+
+.import-table select {
+  font-size: 0.78rem;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
 /* Estilos para el nuevo Banner */
 .main-banner {
   width: 100%;
