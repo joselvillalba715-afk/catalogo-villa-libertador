@@ -28,6 +28,31 @@
       <p class="error-text" id="login-error"></p>
       <p class="helper-text" style="text-align:center; margin-top:10px;">
         <a href="#" id="link-olvide-password">Olvidé mi contraseña</a>
+        ·
+        <a href="#" id="link-crear-cuenta">Crear cuenta</a>
+      </p>
+    </form>
+  </div>
+
+  <!-- CREAR CUENTA -->
+  <div class="login-card hidden" id="registro-card">
+    <h1>Crear cuenta</h1>
+    <p class="helper-text" style="text-align:center; margin-top:-6px;">
+      Solo para compañeros autorizados por el administrador.
+    </p>
+    <form id="registro-form">
+      <div class="field">
+        <label for="registro-email">Email</label>
+        <input type="email" id="registro-email" required autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="registro-password">Elegí una contraseña</label>
+        <input type="password" id="registro-password" required minlength="6" autocomplete="new-password" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Crear mi cuenta</button>
+      <p class="error-text" id="registro-error"></p>
+      <p class="helper-text" style="text-align:center; margin-top:10px;">
+        <a href="#" id="link-volver-login-registro">Volver a iniciar sesión</a>
       </p>
     </form>
   </div>
