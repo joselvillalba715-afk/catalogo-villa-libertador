@@ -468,10 +468,14 @@ function renderCard(p) {
   const body = document.createElement("div");
   body.className = "product-card__body";
 
+  // NUEVO EN CONTENEDOR META: Agrupa título y precio para alineación vertical en móviles
+  const metaWrap = document.createElement("div");
+  metaWrap.className = "product-card__meta";
+
   const name = document.createElement("h3");
   name.className = "product-card__name";
   name.textContent = p.nombre;
-  body.appendChild(name);
+  metaWrap.appendChild(name);
 
   const priceRow = document.createElement("div");
   priceRow.className = "product-card__price-row";
@@ -492,13 +496,14 @@ function renderCard(p) {
     price.textContent = fmt.format(p.precio || 0);
     priceRow.appendChild(price);
   }
-  body.appendChild(priceRow);
+  metaWrap.appendChild(priceRow);
+  body.appendChild(metaWrap);
 
   if (p.promo && p.promoTexto && p.enStock !== false) {
     const promoText = document.createElement("p");
     promoText.className = "product-card__promo-text";
     promoText.textContent = p.promoTexto;
-    body.appendChild(promoText);
+    metaWrap.appendChild(promoText);
   }
 
   if (p.enStock === false) {
