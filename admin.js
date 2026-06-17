@@ -401,7 +401,13 @@ async function eliminarProducto(p) {
 
 const listaPedidos = document.getElementById("lista-pedidos");
 const pedidosVacio = document.getElementById("pedidos-vacio");
+const pedidosSinResultados = document.getElementById("pedidos-sin-resultados");
 const btnExportarPedidos = document.getElementById("btn-exportar-pedidos");
+
+const filtroDesde = document.getElementById("filtro-desde");
+const filtroHasta = document.getElementById("filtro-hasta");
+const filtroCliente = document.getElementById("filtro-cliente");
+const btnLimpiarFiltros = document.getElementById("btn-limpiar-filtros");
 
 let pedidosCache = [];
 
@@ -418,6 +424,44 @@ onSnapshot(
   }
 );
 
+function normalizarTexto(texto) {
+  return (texto || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function obtenerPedidosFiltrados() {
+  const desde = filtroDesde.value ? new Date(filtroDesde.value + "T00:00:00") : null;
+  const hasta = filtroHasta.value ? new Date(filtroHasta.value + "T23:59:59") : null;
+  const textoCliente = normalizarTexto(filtroCliente.value.trim());
+
+  return pedidosCache.filter((pedido) => {
+    const fecha = pedido.creadoEn?.toDate ? pedido.creadoEn.toDate() : null;
+
+    if (desde && (!fecha || fecha < desde)) return false;
+    if (hasta && (!fecha || fecha > hasta)) return false;
+
+    if (textoCliente) {
+      const nombreNormalizado = normalizarTexto(pedido.clienteNombre);
+      if (!nombreNormalizado.includes(textoCliente)) return false;
+    }
+
+    return true;
+  });
+}
+
+[filtroDesde, filtroHasta, filtroCliente].forEach((el) => {
+  el.addEventListener("input", renderPedidos);
+});
+
+btnLimpiarFiltros.addEventListener("click", () => {
+  filtroDesde.value = "";
+  filtroHasta.value = "";
+  filtroCliente.value = "";
+  renderPedidos();
+});
+
 function formatearFechaHora(timestamp) {
   if (!timestamp || !timestamp.toDate) return "—";
   const fecha = timestamp.toDate();
@@ -427,10 +471,19 @@ function formatearFechaHora(timestamp) {
 }
 
 function renderPedidos() {
+  const pedidosFiltrados = obtenerPedidosFiltrados();
+
   listaPedidos.innerHTML = "";
   pedidosVacio.classList.toggle("hidden", pedidosCache.length > 0);
 
-  for (const pedido of pedidosCache) {
+  const hayFiltrosActivos =
+    filtroDesde.value || filtroHasta.value || filtroCliente.value.trim();
+  pedidosSinResultados.classList.toggle(
+    "hidden",
+    !(pedidosCache.length > 0 && hayFiltrosActivos && pedidosFiltrados.length === 0)
+  );
+
+  for (const pedido of pedidosFiltrados) {
     const card = document.createElement("div");
     card.className = "order-card";
 
@@ -518,8 +571,10 @@ function escaparCSV(valor) {
 }
 
 btnExportarPedidos.addEventListener("click", () => {
-  if (pedidosCache.length === 0) {
-    alert("No hay pedidos para exportar.");
+  const pedidosAExportar = obtenerPedidosFiltrados();
+
+  if (pedidosAExportar.length === 0) {
+    alert("No hay pedidos para exportar con el filtro actual.");
     return;
   }
 
@@ -527,7 +582,7 @@ btnExportarPedidos.addEventListener("click", () => {
     ["Fecha", "Hora", "Cliente", "WhatsApp", "Producto", "Cantidad", "Precio unitario", "Subtotal", "Total del pedido"],
   ];
 
-  for (const pedido of pedidosCache) {
+  for (const pedido of pedidosAExportar) {
     const fecha = pedido.creadoEn?.toDate ? pedido.creadoEn.toDate() : null;
     const fechaStr = fecha ? fecha.toLocaleDateString("es-AR") : "";
     const horaStr = fecha ? fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "";
