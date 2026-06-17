@@ -133,6 +133,19 @@
       </form>
     </div>
 
+    <!-- Importar CSV -->
+    <div class="panel">
+      <h2>Importar productos desde CSV</h2>
+      <p class="helper-text">
+        El archivo debe tener las columnas: <strong>codigo, nombre, precio, categoria, enStock</strong>.
+        En "enStock" usá <strong>true</strong> o <strong>false</strong>.
+      </p>
+      <div class="field">
+        <input type="file" id="csv-input" accept=".csv" />
+      </div>
+      <p class="error-text" id="csv-error"></p>
+    </div>
+
     <!-- Lista -->
     <div class="panel">
       <h2>Productos cargados</h2>
@@ -243,6 +256,39 @@
           <button type="submit" class="btn btn-primary">Guardar cambios</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL IMPORTAR CSV -->
+  <div class="modal-backdrop hidden" id="modal-importar">
+    <div class="modal modal--ancho">
+      <h2>Revisar importación</h2>
+      <p class="helper-text">
+        Los productos en <strong>verde</strong> son nuevos y se van a agregar.
+        Los productos en <strong>amarillo</strong> ya existen (mismo código) — elegí si querés actualizarlos o dejarlos como están.
+      </p>
+      <div class="helper-text" id="csv-resumen" style="margin-bottom:10px;"></div>
+      <div class="import-table-wrap">
+        <table class="import-table" id="import-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Código</th>
+              <th>Nombre</th>
+              <th>Categoría</th>
+              <th>Precio</th>
+              <th>Stock</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="import-table-body"></tbody>
+        </table>
+      </div>
+      <p class="error-text" id="importar-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-cancelar-importar">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-confirmar-importar">Importar seleccionados</button>
+      </div>
     </div>
   </div>
 
