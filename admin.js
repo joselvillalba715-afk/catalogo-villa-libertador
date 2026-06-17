@@ -641,3 +641,249 @@ btnExportarPedidos.addEventListener("click", () => {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
+
+// ============================================================
+// IMPORTAR PRODUCTOS DESDE CSV
+// ============================================================
+
+const csvInput = document.getElementById("csv-input");
+const csvError = document.getElementById("csv-error");
+const csvResumen = document.getElementById("csv-resumen");
+
+const modalImportar = document.getElementById("modal-importar");
+const importTableBody = document.getElementById("import-table-body");
+const importarError = document.getElementById("importar-error");
+const btnCancelarImportar = document.getElementById("btn-cancelar-importar");
+const btnConfirmarImportar = document.getElementById("btn-confirmar-importar");
+
+let filasImportacion = []; // [{ codigo, nombre, precio, categoria, enStock, existente, accion }]
+
+// ----- Parseo simple de CSV (soporta comillas y comas dentro de comillas) -----
+function parsearCSV(texto) {
+  const lineas = texto.split(/\r?\n/).filter((l) => l.trim() !== "");
+  if (lineas.length === 0) return [];
+
+  function parsearLinea(linea) {
+    const valores = [];
+    let actual = "";
+    let dentroComillas = false;
+    for (let i = 0; i < linea.length; i++) {
+      const char = linea[i];
+      if (char === '"') {
+        if (dentroComillas && linea[i + 1] === '"') {
+          actual += '"';
+          i++;
+        } else {
+          dentroComillas = !dentroComillas;
+        }
+      } else if (char === "," && !dentroComillas) {
+        valores.push(actual);
+        actual = "";
+      } else {
+        actual += char;
+      }
+    }
+    valores.push(actual);
+    return valores.map((v) => v.trim());
+  }
+
+  const headers = parsearLinea(lineas[0]).map((h) => h.toLowerCase().trim());
+  const filas = [];
+
+  for (let i = 1; i < lineas.length; i++) {
+    const valores = parsearLinea(lineas[i]);
+    const fila = {};
+    headers.forEach((h, idx) => {
+      fila[h] = valores[idx] !== undefined ? valores[idx] : "";
+    });
+    filas.push(fila);
+  }
+
+  return filas;
+}
+
+function normalizarBooleano(valor) {
+  const v = String(valor).trim().toLowerCase();
+  return !(v === "false" || v === "0" || v === "no" || v === "");
+}
+
+csvInput.addEventListener("change", async (e) => {
+  csvError.textContent = "";
+  const archivo = e.target.files[0];
+  if (!archivo) return;
+
+  try {
+    const texto = await archivo.text();
+    const filasCrudas = parsearCSV(texto);
+
+    if (filasCrudas.length === 0) {
+      csvError.textContent = "El archivo está vacío o no se pudo leer.";
+      return;
+    }
+
+    const primerFila = filasCrudas[0];
+    const columnasEsperadas = ["codigo", "nombre", "precio", "categoria", "enstock"];
+    const columnasFaltantes = columnasEsperadas.filter((c) => !(c in primerFila));
+    if (columnasFaltantes.length > 0) {
+      csvError.textContent = `Faltan columnas en el archivo: ${columnasFaltantes.join(", ")}.`;
+      return;
+    }
+
+    filasImportacion = filasCrudas.map((fila) => {
+      const codigo = (fila.codigo || "").trim();
+      const existente = codigo
+        ? productosCache.find((p) => (p.codigo || "").trim() === codigo)
+        : null;
+
+      return {
+        codigo,
+        nombre: (fila.nombre || "").trim(),
+        precio: parseFloat(fila.precio) || 0,
+        categoria: (fila.categoria || "").trim(),
+        enStock: normalizarBooleano(fila.enstock),
+        existenteId: existente ? existente.id : null,
+        accion: existente ? "actualizar" : "agregar",
+      };
+    });
+
+    abrirModalImportar();
+    csvInput.value = "";
+  } catch (err) {
+    console.error(err);
+    csvError.textContent = "No se pudo leer el archivo. Verificá que sea un CSV válido.";
+  }
+});
+
+function abrirModalImportar() {
+  importarError.textContent = "";
+
+  const nuevos = filasImportacion.filter((f) => f.accion === "agregar").length;
+  const existentes = filasImportacion.filter((f) => f.existenteId).length;
+  csvResumen.textContent = `${filasImportacion.length} filas leídas: ${nuevos} nuevas, ${existentes} ya existentes.`;
+
+  renderTablaImportacion();
+  modalImportar.classList.remove("hidden");
+}
+
+function renderTablaImportacion() {
+  importTableBody.innerHTML = "";
+
+  filasImportacion.forEach((fila, idx) => {
+    const tr = document.createElement("tr");
+    tr.className = fila.existenteId ? "import-row--existente" : "import-row--nuevo";
+
+    const tdCheck = document.createElement("td");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = fila.accion !== "saltear";
+    checkbox.addEventListener("change", () => {
+      fila.accion = checkbox.checked
+        ? (fila.existenteId ? "actualizar" : "agregar")
+        : "saltear";
+    });
+    tdCheck.appendChild(checkbox);
+    tr.appendChild(tdCheck);
+
+    const tdCodigo = document.createElement("td");
+    tdCodigo.textContent = fila.codigo || "—";
+    tr.appendChild(tdCodigo);
+
+    const tdNombre = document.createElement("td");
+    tdNombre.textContent = fila.nombre;
+    tr.appendChild(tdNombre);
+
+    const tdCategoria = document.createElement("td");
+    tdCategoria.textContent = fila.categoria;
+    tr.appendChild(tdCategoria);
+
+    const tdPrecio = document.createElement("td");
+    tdPrecio.textContent = fmt.format(fila.precio);
+    tr.appendChild(tdPrecio);
+
+    const tdStock = document.createElement("td");
+    tdStock.textContent = fila.enStock ? "Sí" : "No";
+    tr.appendChild(tdStock);
+
+    const tdAccion = document.createElement("td");
+    if (fila.existenteId) {
+      const select = document.createElement("select");
+      const optActualizar = document.createElement("option");
+      optActualizar.value = "actualizar";
+      optActualizar.textContent = "Actualizar existente";
+      const optSaltear = document.createElement("option");
+      optSaltear.value = "saltear";
+      optSaltear.textContent = "Saltear (no tocar)";
+      select.appendChild(optActualizar);
+      select.appendChild(optSaltear);
+      select.value = fila.accion;
+      select.addEventListener("change", () => {
+        fila.accion = select.value;
+        checkbox.checked = select.value !== "saltear";
+      });
+      tdAccion.appendChild(select);
+    } else {
+      const tag = document.createElement("span");
+      tag.className = "tag tag--promo";
+      tag.textContent = "Nuevo";
+      tdAccion.appendChild(tag);
+    }
+    tr.appendChild(tdAccion);
+
+    importTableBody.appendChild(tr);
+  });
+}
+
+btnCancelarImportar.addEventListener("click", () => {
+  modalImportar.classList.add("hidden");
+  filasImportacion = [];
+});
+
+btnConfirmarImportar.addEventListener("click", async () => {
+  importarError.textContent = "";
+  const aProcesar = filasImportacion.filter((f) => f.accion !== "saltear");
+
+  if (aProcesar.length === 0) {
+    importarError.textContent = "No hay ninguna fila seleccionada para importar.";
+    return;
+  }
+
+  btnConfirmarImportar.disabled = true;
+  btnConfirmarImportar.textContent = "Importando…";
+
+  try {
+    for (const fila of aProcesar) {
+      if (fila.accion === "actualizar" && fila.existenteId) {
+        await updateDoc(doc(db, "productos", fila.existenteId), {
+          codigo: fila.codigo,
+          nombre: fila.nombre,
+          precio: fila.precio,
+          categoria: fila.categoria,
+          enStock: fila.enStock,
+        });
+      } else if (fila.accion === "agregar") {
+        await addDoc(collection(db, "productos"), {
+          codigo: fila.codigo,
+          nombre: fila.nombre,
+          precio: fila.precio,
+          categoria: fila.categoria,
+          orden: 0,
+          enStock: fila.enStock,
+          promo: false,
+          precioPromo: null,
+          promoTexto: "",
+          imagenUrl: "",
+        });
+      }
+    }
+
+    modalImportar.classList.add("hidden");
+    filasImportacion = [];
+    alert("Importación completada.");
+  } catch (err) {
+    console.error(err);
+    importarError.textContent = "Ocurrió un error al importar. Algunos productos pueden haberse cargado igual.";
+  } finally {
+    btnConfirmarImportar.disabled = false;
+    btnConfirmarImportar.textContent = "Importar seleccionados";
+  }
+});
