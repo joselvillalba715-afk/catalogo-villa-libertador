@@ -12,18 +12,16 @@
 </head>
 <body>
 
-  <div style="display: none;">
-    <p id="ultima-actualizacion"></p>
-  </div>
-
-<div class="main-banner">
-    <img src="images/banner-distribuidora.png" alt="Promociones Distribuidora Villa Libertador" class="banner-img" />
-  </div>
-  <nav class="cat-nav" id="cat-nav" aria-label="Categorías">
-    <div class="cat-nav__scroll" id="cat-nav-scroll">
+  <header class="top-bar">
+    <div class="top-bar__inner">
+      <div class="brand">
+        <p class="brand__name">Villa Libertador</p>
+        <span class="brand__tag">Distribuidora · Córdoba</span>
       </div>
-  </nav>
-  
+      <p class="top-bar__updated" id="ultima-actualizacion"></p>
+    </div>
+  </header>
+
   <nav class="cat-nav" id="cat-nav" aria-label="Categorías">
     <div class="cat-nav__scroll" id="cat-nav-scroll">
       <!-- Se completa por JS -->
@@ -43,20 +41,48 @@
   <div class="cart-backdrop hidden" id="cart-backdrop">
     <div class="cart-drawer" role="dialog" aria-label="Carrito de pedido">
       <div class="cart-drawer__header">
-        <h2>Mi pedido</h2>
+        <h2 id="cart-drawer-title">Mi pedido</h2>
         <button class="icon-btn" id="cart-close" type="button">Cerrar</button>
       </div>
-      <div class="cart-drawer__body" id="cart-items">
-        <!-- Se completa por JS -->
+
+      <!-- Vista 1: items del carrito -->
+      <div id="cart-view-items">
+        <div class="cart-drawer__body" id="cart-items">
+          <!-- Se completa por JS -->
+        </div>
+        <div class="cart-drawer__footer" id="cart-footer">
+          <!-- Se completa por JS -->
+        </div>
       </div>
-      <div class="cart-drawer__footer" id="cart-footer">
-        <!-- Se completa por JS -->
+
+      <!-- Vista 2: datos del cliente -->
+      <div id="cart-view-datos" class="hidden">
+        <div class="cart-drawer__body">
+          <p class="helper-text">Para identificar tu pedido, contanos quién lo hace:</p>
+          <form id="form-datos-cliente">
+            <div class="field">
+              <label for="cliente-nombre">Nombre y apellido</label>
+              <input type="text" id="cliente-nombre" required />
+            </div>
+            <div class="field">
+              <label for="cliente-whatsapp">Tu número de WhatsApp</label>
+              <input type="tel" id="cliente-whatsapp" required placeholder="Ej: 3517509439" />
+            </div>
+            <p class="error-text" id="datos-cliente-error"></p>
+          </form>
+        </div>
+        <div class="cart-drawer__footer">
+          <button type="submit" form="form-datos-cliente" class="btn btn-primary btn-block" id="btn-confirmar-pedido">
+            Confirmar y enviar por WhatsApp
+          </button>
+          <button type="button" class="btn btn-secondary btn-block" id="btn-volver-items">Volver al pedido</button>
+        </div>
       </div>
     </div>
   </div>
 
   <footer class="site-footer">
-    Distribuidora Villa Libertador SRL · Armada Argentina 2736 - Barrio Santa Isabel Segunda, Córdoba
+    Distribuidora Villa Libertador SRL · Barrio Santa Isabel Segunda, Córdoba
     <br />
     ¿Tenés una consulta? Escribinos por
     <a id="wa-footer-link" href="#" target="_blank" rel="noopener">WhatsApp</a>.
