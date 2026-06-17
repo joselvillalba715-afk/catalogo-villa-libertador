@@ -1096,19 +1096,37 @@ main {
 .order-filters .field:last-of-type {
   margin-bottom: 12px;
 }
-/* Estilos para el nuevo Banner */
-.main-banner {
-  width: 100%;
-  max-width: 1200px; /* Evita que en pantallas gigantes se estire demasiado */
-  margin: 0 auto;    /* Lo centra en la pantalla */
-  padding: 10px 0;   /* Le da un pequeño espacio arriba y abajo */
-  overflow: hidden;
+
+/* ============================================================
+   ETIQUETA DE FORMA DE PAGO (en pedidos)
+   ============================================================ */
+
+.tag--pago {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
-.banner-img {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 8px; /* Le da una terminación redondeada muy estética */
-  object-fit: cover;
+.tag--pago-efectivo {
+  background: #e3f2e1;
+  color: #2d7a4f;
+}
+
+.tag--pago-qr {
+  background: #e6e9fb;
+  color: #3d4fc4;
+}
+
+.tag--pago-transferencia {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tag--pago-debito {
+  background: #fdf0d5;
+  color: #b8860b;
 }
