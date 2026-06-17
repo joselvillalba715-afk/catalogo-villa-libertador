@@ -462,6 +462,14 @@ btnLimpiarFiltros.addEventListener("click", () => {
   renderPedidos();
 });
 
+function slugifyPago(formaPago) {
+  return formaPago
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-");
+}
+
 function formatearFechaHora(timestamp) {
   if (!timestamp || !timestamp.toDate) return "—";
   const fecha = timestamp.toDate();
@@ -506,6 +514,13 @@ function renderPedidos() {
 
     header.appendChild(headerInfo);
 
+    if (pedido.formaPago) {
+      const pago = document.createElement("span");
+      pago.className = `tag tag--pago tag--pago-${slugifyPago(pedido.formaPago)}`;
+      pago.textContent = pedido.formaPago;
+      header.appendChild(pago);
+    }
+
     const total = document.createElement("span");
     total.className = "order-card__total";
     total.textContent = fmt.format(pedido.total || 0);
@@ -518,6 +533,14 @@ function renderPedidos() {
 
     const detail = document.createElement("div");
     detail.className = "order-card__detail hidden";
+
+    if (pedido.formaPago) {
+      const pagoDetalle = document.createElement("p");
+      pagoDetalle.className = "helper-text";
+      pagoDetalle.style.marginBottom = "10px";
+      pagoDetalle.innerHTML = `<strong>Forma de pago:</strong> ${pedido.formaPago}`;
+      detail.appendChild(pagoDetalle);
+    }
 
     const tabla = document.createElement("table");
     tabla.className = "order-detail-table";
@@ -579,7 +602,7 @@ btnExportarPedidos.addEventListener("click", () => {
   }
 
   const filas = [
-    ["Fecha", "Hora", "Cliente", "WhatsApp", "Producto", "Cantidad", "Precio unitario", "Subtotal", "Total del pedido"],
+    ["Fecha", "Hora", "Cliente", "WhatsApp", "Forma de pago", "Producto", "Cantidad", "Precio unitario", "Subtotal", "Total del pedido"],
   ];
 
   for (const pedido of pedidosAExportar) {
@@ -595,6 +618,7 @@ btnExportarPedidos.addEventListener("click", () => {
         horaStr,
         pedido.clienteNombre || "",
         pedido.clienteWhatsapp || "",
+        pedido.formaPago || "",
         item.nombre || "",
         item.cantidad ?? "",
         item.precioUnitario ?? "",
