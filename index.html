@@ -10,22 +10,41 @@
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
+<body>
 
-  <body>
-
-  <div style="display: none;">
-    <p id="ultima-actualizacion"></p>
+  <div class="banner-strip">
+    <img src="images/banner-distribuidora.png" alt="Distribuidora Villa Libertador" class="banner-strip__img" />
   </div>
 
-  <div class="main-banner">
-    <img src="images/banner-distribuidora.png" alt="Distribuidora Villa Libertador" class="banner-img" />
+  <header class="top-bar">
+    <div class="top-bar__inner">
+      <div class="brand">
+        <p class="brand__name">Villa Libertador</p>
+        <span class="brand__tag">Distribuidora · Córdoba</span>
+      </div>
+      <p class="top-bar__updated" id="ultima-actualizacion"></p>
+    </div>
+  </header>
+
+  <div class="search-bar">
+    <div class="search-bar__inner">
+      <input
+        type="search"
+        id="buscador"
+        class="search-bar__input"
+        placeholder="Buscar producto…"
+        aria-label="Buscar producto"
+        autocomplete="off"
+      />
+    </div>
   </div>
 
   <nav class="cat-nav" id="cat-nav" aria-label="Categorías">
     <div class="cat-nav__scroll" id="cat-nav-scroll">
+      <!-- Se completa por JS -->
     </div>
   </nav>
-    
+
   <main id="catalogo">
     <p class="state-message" id="estado">Cargando catálogo…</p>
   </main>
