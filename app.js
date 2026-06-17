@@ -147,7 +147,7 @@ function totalCarrito() {
   );
 }
 
-function mensajeWhatsAppCarrito(nombreCliente) {
+function mensajeWhatsAppCarrito(nombreCliente, formaPago) {
   const items = Object.values(carrito);
   const lineas = items.map(
     (it) =>
@@ -158,7 +158,8 @@ function mensajeWhatsAppCarrito(nombreCliente) {
   const texto =
     `Hola! Soy ${nombreCliente} y quiero hacer este pedido:\n\n` +
     lineas.join("\n") +
-    `\n\nTotal: ${fmt.format(totalCarrito())}`;
+    `\n\nTotal: ${fmt.format(totalCarrito())}` +
+    `\nForma de pago: ${formaPago}`;
   return `${waBase}?text=${encodeURIComponent(texto)}`;
 }
 
@@ -190,9 +191,11 @@ elFormDatosCliente.addEventListener("submit", async (e) => {
     .getElementById("cliente-whatsapp")
     .value.trim()
     .replace(/[^0-9]/g, "");
+  const formaPago = document.getElementById("cliente-pago").value;
 
-  if (!nombreCliente || !whatsappCliente) {
-    elDatosClienteError.textContent = "Completá tu nombre y tu número de WhatsApp.";
+  if (!nombreCliente || !whatsappCliente || !formaPago) {
+    elDatosClienteError.textContent =
+      "Completá tu nombre, tu número de WhatsApp y la forma de pago.";
     return;
   }
 
@@ -211,12 +214,13 @@ elFormDatosCliente.addEventListener("submit", async (e) => {
     await addDoc(collection(db, "pedidos"), {
       clienteNombre: nombreCliente,
       clienteWhatsapp: whatsappCliente,
+      formaPago,
       items,
       total: totalCarrito(),
       creadoEn: serverTimestamp(),
     });
 
-    const link = mensajeWhatsAppCarrito(nombreCliente);
+    const link = mensajeWhatsAppCarrito(nombreCliente, formaPago);
     window.open(link, "_blank", "noopener");
 
     vaciarCarrito();
