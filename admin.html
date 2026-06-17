@@ -59,6 +59,12 @@
       </div>
     </div>
 
+    <div class="admin-tabs" id="admin-tabs">
+      <button type="button" class="admin-tab admin-tab--active" data-tab="catalogo">Catálogo</button>
+      <button type="button" class="admin-tab" data-tab="pedidos">Pedidos</button>
+    </div>
+
+    <div id="tab-catalogo">
     <!-- Agregar producto -->
     <div class="panel">
       <h2>Agregar producto</h2>
@@ -132,6 +138,18 @@
       <h2>Productos cargados</h2>
       <p class="helper-text" id="lista-vacia">Todavía no hay productos.</p>
       <div class="admin-product-list" id="lista-productos"></div>
+    </div>
+    </div>
+
+    <div id="tab-pedidos" class="hidden">
+      <div class="panel">
+        <div class="admin-header" style="margin-bottom: 10px;">
+          <h2 style="margin:0;">Pedidos recibidos</h2>
+          <button class="btn btn-secondary" id="btn-exportar-pedidos">Exportar a CSV</button>
+        </div>
+        <p class="helper-text" id="pedidos-vacio">Todavía no llegaron pedidos.</p>
+        <div class="orders-list" id="lista-pedidos"></div>
+      </div>
     </div>
   </div>
 
