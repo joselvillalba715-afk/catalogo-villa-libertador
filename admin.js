@@ -61,7 +61,7 @@ const nPromoFields = document.getElementById("n-promo-fields");
 
 const listaProductos = document.getElementById("lista-productos");
 const listaVacia = document.getElementById("lista-vacia");
-const elAdminBuscador = document.getElementById("admin-buscador"); // NUEVO: Elemento del input buscador admin
+const elAdminBuscador = document.getElementById("admin-buscador");
 
 const modalEditar = document.getElementById("modal-editar");
 const formEditar = document.getElementById("form-editar");
@@ -141,7 +141,6 @@ registroForm.addEventListener("submit", async (e) => {
   const password = document.getElementById("registro-password").value;
 
   try {
-    // Verificamos que el email esté en la lista de autorizados antes de crear la cuenta
     const refAutorizado = doc(db, "emailsAutorizados", email);
     const snapAutorizado = await getDoc(refAutorizado);
 
@@ -161,16 +160,6 @@ registroForm.addEventListener("submit", async (e) => {
     } else {
       registroError.textContent = "No se pudo crear la cuenta. Probá de nuevo.";
     }
-  }
-});
-
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    loginCard.classList.add("hidden");
-    adminShell.classList.remove("hidden");
-  } else {
-    loginCard.classList.remove("hidden");
-    adminShell.classList.add("hidden");
   }
 });
 
@@ -260,20 +249,9 @@ formNuevo.addEventListener("submit", async (e) => {
   }
 });
 
-// ---------- Listado en tiempo real ----------
+// ---------- Variables de Datos y Cache ----------
 let productosCache = [];
-
-const productosQuery = query(
-  collection(db, "productos"),
-  orderBy("categoria"),
-  orderBy("orden")
-);
-
-onSnapshot(productosQuery, (snapshot) => {
-  productosCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-  aplicarFiltroAdmin(); // NUEVO: En vez de llamar directo a renderLista, procesamos el filtro primero
-  actualizarListaCategorias();
-});
+let pedidosCache = [];
 
 function actualizarListaCategorias() {
   const datalist = document.getElementById("lista-categorias");
@@ -288,7 +266,6 @@ function actualizarListaCategorias() {
   }
 }
 
-// NUEVO: Función para interceptar y filtrar los productos cargados en el panel administrador
 function aplicarFiltroAdmin() {
   const textoBusqueda = elAdminBuscador ? normalizarTexto(elAdminBuscador.value.trim()) : "";
   
@@ -305,12 +282,10 @@ function aplicarFiltroAdmin() {
   renderLista(filtrados);
 }
 
-// NUEVO: Escuchador de entrada para el buscador del panel de control
 if (elAdminBuscador) {
   elAdminBuscador.addEventListener("input", aplicarFiltroAdmin);
 }
 
-// MODIFICACIÓN: Ahora recibe la lista de productos (filtrados o completos) por parámetro
 function renderLista(productosARenderizar = productosCache) {
   listaProductos.innerHTML = "";
   listaVacia.classList.toggle("hidden", productosARenderizar.length > 0);
@@ -464,7 +439,7 @@ async function eliminarProducto(p) {
       try {
         await deleteObject(ref(storage, `productos/${p.id}.${extension}`));
       } catch (err) {
-        // Ignorar error si la imagen no existe
+        // Ignorar error si no existe la imagen
       }
     }
   } catch (err) {
@@ -476,7 +451,6 @@ async function eliminarProducto(p) {
 // ============================================================
 // PEDIDOS
 // ============================================================
-
 const listaPedidos = document.getElementById("lista-pedidos");
 const pedidosVacio = document.getElementById("pedidos-vacio");
 const pedidosSinResultados = document.getElementById("pedidos-sin-resultados");
@@ -486,21 +460,6 @@ const filtroDesde = document.getElementById("filtro-desde");
 const filtroHasta = document.getElementById("filtro-hasta");
 const filtroCliente = document.getElementById("filtro-cliente");
 const btnLimpiarFiltros = document.getElementById("btn-limpiar-filtros");
-
-let pedidosCache = [];
-
-const pedidosQuery = query(collection(db, "pedidos"), orderBy("creadoEn", "desc"));
-
-onSnapshot(
-  pedidosQuery,
-  (snapshot) => {
-    pedidosCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderPedidos();
-  },
-  (err) => {
-    console.error(err);
-  }
-);
 
 function normalizarTexto(texto) {
   return (texto || "")
@@ -668,7 +627,6 @@ function renderPedidos() {
 }
 
 // ----- Exportar a CSV -----
-
 function escaparCSV(valor) {
   const texto = String(valor ?? "");
   if (texto.includes(",") || texto.includes('"') || texto.includes("\n")) {
@@ -731,7 +689,6 @@ if (btnExportarPedidos) {
 // ============================================================
 // IMPORTAR PRODUCTOS DESDE CSV
 // ============================================================
-
 const csvInput = document.getElementById("csv-input");
 const csvError = document.getElementById("csv-error");
 const csvResumen = document.getElementById("csv-resumen");
@@ -993,3 +950,61 @@ function ajustarStickyNav() {
 window.addEventListener("resize", ajustarStickyNav);
 window.addEventListener("load", ajustarStickyNav);
 ajustarStickyNav();
+
+// ============================================================
+// CONTROL DE FLUJO Y CONEXIÓN EN TIEMPO REAL (ZONA SEGURA)
+// ============================================================
+let suscripcionProductos = null;
+let suscripcionPedidos = null;
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    // Escondemos logins y mostramos el entorno completo de control
+    if (loginCard) loginCard.classList.add("hidden");
+    if (registroCard) registroCard.classList.add("hidden");
+    if (resetCard) resetCard.classList.add("hidden");
+    if (adminShell) adminShell.classList.remove("hidden");
+
+    // Conectamos la escucha en tiempo real de Firebase con sesión activa
+    if (!suscripcionProductos) {
+      const productosQuery = query(
+        collection(db, "productos"),
+        orderBy("categoria"),
+        orderBy("orden")
+      );
+
+      suscripcionProductos = onSnapshot(productosQuery, (snapshot) => {
+        productosCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        aplicarFiltroAdmin();
+        actualizarListaCategorias();
+      }, (error) => {
+        console.error("Error en productos:", error);
+      });
+    }
+
+    if (!suscripcionPedidos) {
+      const pedidosQuery = query(collection(db, "pedidos"), orderBy("creadoEn", "desc"));
+
+      suscripcionPedidos = onSnapshot(pedidosQuery, (snapshot) => {
+        pedidosCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        renderPedidos();
+      }, (err) => {
+        console.error("Error en pedidos:", err);
+      });
+    }
+
+  } else {
+    // Si no está logueado, destruimos ganchos activos para evitar fugas de memoria y bloqueos
+    if (suscripcionProductos) {
+      suscripcionProductos();
+      suscripcionProductos = null;
+    }
+    if (suscripcionPedidos) {
+      suscripcionPedidos();
+      suscripcionPedidos = null;
+    }
+
+    if (adminShell) adminShell.classList.add("hidden");
+    if (loginCard) loginCard.classList.remove("hidden");
+  }
+});
