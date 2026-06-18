@@ -1008,3 +1008,141 @@ onAuthStateChanged(auth, (user) => {
     if (loginCard) loginCard.classList.remove("hidden");
   }
 });
+
+
+// ============================================================
+// GESTIÓN DE CATEGORÍAS
+// ============================================================
+const listaCatAdmin = document.getElementById("lista-categorias-admin");
+const categoriasVacia = document.getElementById("categorias-vacia");
+const modalRenombrar = document.getElementById("modal-renombrar");
+const btnCancelarRenombrar = document.getElementById("btn-cancelar-renombrar");
+const btnConfirmarRenombrar = document.getElementById("btn-confirmar-renombrar");
+const renombrarNuevo = document.getElementById("renombrar-nuevo");
+const renombrarError = document.getElementById("renombrar-error");
+
+let categoriaEnRenombrado = null;
+
+function renderCategoriasAdmin() {
+  if (!listaCatAdmin) return;
+  listaCatAdmin.innerHTML = "";
+
+  const categorias = [...new Set(productosCache.map((p) => p.categoria).filter(Boolean))];
+  categorias.sort((a, b) => a.localeCompare(b, "es"));
+
+  if (categoriasVacia) categoriasVacia.classList.toggle("hidden", categorias.length > 0);
+
+  for (const cat of categorias) {
+    const cantidad = productosCache.filter((p) => p.categoria === cat).length;
+
+    const row = document.createElement("div");
+    row.className = "admin-product-row";
+    row.style.alignItems = "center";
+
+    const info = document.createElement("div");
+    info.className = "admin-product-row__info";
+
+    const nombre = document.createElement("p");
+    nombre.className = "admin-product-row__name";
+    nombre.textContent = cat;
+    info.appendChild(nombre);
+
+    const meta = document.createElement("p");
+    meta.className = "admin-product-row__meta";
+    meta.textContent = `${cantidad} producto${cantidad !== 1 ? "s" : ""}`;
+    info.appendChild(meta);
+
+    row.appendChild(info);
+
+    const actions = document.createElement("div");
+    actions.className = "admin-product-row__actions";
+
+    const btnRenombrar = document.createElement("button");
+    btnRenombrar.type = "button";
+    btnRenombrar.className = "icon-btn";
+    btnRenombrar.textContent = "Renombrar";
+    btnRenombrar.addEventListener("click", () => abrirModalRenombrar(cat));
+    actions.appendChild(btnRenombrar);
+
+    const btnEliminarCat = document.createElement("button");
+    btnEliminarCat.type = "button";
+    btnEliminarCat.className = "icon-btn";
+    btnEliminarCat.textContent = "Eliminar";
+    btnEliminarCat.addEventListener("click", () => eliminarCategoria(cat));
+    actions.appendChild(btnEliminarCat);
+
+    row.appendChild(actions);
+    listaCatAdmin.appendChild(row);
+  }
+}
+
+function abrirModalRenombrar(cat) {
+  categoriaEnRenombrado = cat;
+  renombrarNuevo.value = cat;
+  renombrarError.textContent = "";
+  modalRenombrar.classList.remove("hidden");
+  renombrarNuevo.focus();
+  renombrarNuevo.select();
+}
+
+if (btnCancelarRenombrar) {
+  btnCancelarRenombrar.addEventListener("click", () => {
+    modalRenombrar.classList.add("hidden");
+    categoriaEnRenombrado = null;
+  });
+}
+
+if (btnConfirmarRenombrar) {
+  btnConfirmarRenombrar.addEventListener("click", async () => {
+    const nuevoNombre = renombrarNuevo.value.trim();
+    if (!nuevoNombre) {
+      renombrarError.textContent = "El nombre no puede estar vacío.";
+      return;
+    }
+    if (nuevoNombre === categoriaEnRenombrado) {
+      modalRenombrar.classList.add("hidden");
+      return;
+    }
+
+    btnConfirmarRenombrar.disabled = true;
+    btnConfirmarRenombrar.textContent = "Actualizando…";
+    renombrarError.textContent = "";
+
+    try {
+      const productosAfectados = productosCache.filter(
+        (p) => p.categoria === categoriaEnRenombrado
+      );
+      for (const p of productosAfectados) {
+        await updateDoc(doc(db, "productos", p.id), { categoria: nuevoNombre });
+      }
+      modalRenombrar.classList.add("hidden");
+      categoriaEnRenombrado = null;
+    } catch (err) {
+      console.error(err);
+      renombrarError.textContent = "No se pudo renombrar. Probá de nuevo.";
+    } finally {
+      btnConfirmarRenombrar.disabled = false;
+      btnConfirmarRenombrar.textContent = "Renombrar";
+    }
+  });
+}
+
+async function eliminarCategoria(cat) {
+  const cantidad = productosCache.filter((p) => p.categoria === cat).length;
+  const mensaje =
+    cantidad > 0
+      ? `¿Eliminar la categoría "${cat}"? Tiene ${cantidad} producto${cantidad !== 1 ? "s" : ""} que quedarán sin categoría.`
+      : `¿Eliminar la categoría "${cat}"?`;
+
+  if (!confirm(mensaje)) return;
+
+  try {
+    const productosAfectados = productosCache.filter((p) => p.categoria === cat);
+    for (const p of productosAfectados) {
+      await updateDoc(doc(db, "productos", p.id), { categoria: "" });
+    }
+  } catch (err) {
+    console.error(err);
+    alert("No se pudo eliminar la categoría. Probá de nuevo.");
+  }
+}
