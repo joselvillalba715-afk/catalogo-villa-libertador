@@ -58,15 +58,61 @@
       background-color: #f0fdf4;
     }
     
-    /* Forzado de diseño limpio para el Login */
+    /* FORZADO Y AISLAMIENTO TOTAL PARA LA CAJA DE LOGIN */
     .caja-login-fija {
-      max-width: 380px;
-      margin: 60px auto;
-      background: #ffffff;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-      border: 1px solid #e4ddd0;
+      max-width: 400px !important;
+      width: 90% !important;
+      margin: 80px auto !important;
+      background: #ffffff !important;
+      padding: 30px !important;
+      border-radius: 12px !important;
+      box-shadow: 0 4px 25px rgba(0,0,0,0.1) !important;
+      border: 1px solid #e2e8f0 !important;
+      box-sizing: border-box !important;
+    }
+    /* Reseteo para que los campos de login no hereden el tamaño gigante del catálogo */
+    .caja-login-fija .field {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      width: 100% !important;
+      margin-bottom: 15px !important;
+    }
+    .caja-login-fija label {
+      width: auto !important;
+      min-width: unset !important;
+      font-size: 14px !important;
+      font-weight: 600 !important;
+      color: #334155 !important;
+      margin-bottom: 6px !important;
+      text-align: left !important;
+    }
+    .caja-login-fija input {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: 42px !important;
+      padding: 8px 12px !important;
+      font-size: 15px !important;
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 6px !important;
+      background: #ffffff !important;
+      color: #0f172a !important;
+      box-sizing: border-box !important;
+    }
+    .caja-login-fija .btn-block {
+      width: 100% !important;
+      height: 44px !important;
+      font-size: 16px !important;
+      font-weight: 600 !important;
+      background: #1f4d3a !important; /* Tu verde institucional */
+      color: white !important;
+      border: none !important;
+      border-radius: 6px !important;
+      cursor: pointer !important;
+      margin-top: 10px !important;
+    }
+    .caja-login-fija .btn-block:hover {
+      background: #153528 !important;
     }
   </style>
 </head>
