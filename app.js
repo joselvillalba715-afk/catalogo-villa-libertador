@@ -18,6 +18,23 @@ const elEstado = document.getElementById("estado");
 const elCatalogo = document.getElementById("catalogo");
 const elCatNav = document.getElementById("cat-nav-scroll");
 const elUltimaActualizacion = document.getElementById("ultima-actualizacion");
+const elBuscador = document.getElementById("buscador");
+
+elBuscador.addEventListener("input", aplicarFiltros);
+
+function ajustarStickyNav() {
+  const searchBar = document.querySelector(".search-bar");
+  if (searchBar) {
+    document.documentElement.style.setProperty(
+      "--search-bar-height",
+      `${searchBar.offsetHeight}px`
+    );
+  }
+}
+
+window.addEventListener("resize", ajustarStickyNav);
+window.addEventListener("load", ajustarStickyNav);
+ajustarStickyNav();
 
 const elCartFloat = document.getElementById("cart-float");
 const elCartBadge = document.getElementById("cart-badge");
@@ -387,10 +404,53 @@ function slugify(texto) {
     .replace(/(^-|-$)/g, "");
 }
 
-function renderCatalogo(productos) {
-  if (productos.length === 0) {
+function normalizarTexto(texto) {
+  return (texto || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+let todosLosProductos = [];
+
+function renderNavCategorias(productos) {
+  const categorias = [...new Set(productos.map((p) => p.categoria || "Otros"))];
+  elCatNav.innerHTML = "";
+  for (const cat of categorias) {
+    const a = document.createElement("a");
+    a.href = `#cat-${slugify(cat)}`;
+    a.className = "cat-chip";
+    a.textContent = cat;
+    elCatNav.appendChild(a);
+  }
+}
+
+function aplicarFiltros() {
+  const textoBusqueda = normalizarTexto(elBuscador.value.trim());
+
+  let filtrados = todosLosProductos;
+  if (textoBusqueda) {
+    filtrados = filtrados.filter((p) =>
+      normalizarTexto(p.nombre).includes(textoBusqueda)
+    );
+  }
+
+  renderCatalogo(filtrados, textoBusqueda.length > 0);
+}
+
+function renderCatalogo(productos, esBusqueda) {
+  if (todosLosProductos.length === 0) {
     elCatalogo.innerHTML = `<p class="state-message">Por el momento no hay productos cargados. Volvé a revisar más tarde.</p>`;
     elCatNav.innerHTML = "";
+    return;
+  }
+
+  if (productos.length === 0) {
+    elCatalogo.innerHTML = `
+      <div class="no-results">
+        <p class="no-results__title">No encontramos productos con ese nombre</p>
+        <p>Probá con otra palabra o revisá las categorías de arriba.</p>
+      </div>`;
     return;
   }
 
@@ -400,16 +460,6 @@ function renderCatalogo(productos) {
     const cat = p.categoria || "Otros";
     if (!categorias.has(cat)) categorias.set(cat, []);
     categorias.get(cat).push(p);
-  }
-
-  // Nav de categorías
-  elCatNav.innerHTML = "";
-  for (const cat of categorias.keys()) {
-    const a = document.createElement("a");
-    a.href = `#cat-${slugify(cat)}`;
-    a.className = "cat-chip";
-    a.textContent = cat;
-    elCatNav.appendChild(a);
   }
 
   // Secciones
@@ -453,7 +503,9 @@ function renderCard(p) {
   } else {
     const ph = document.createElement("div");
     ph.className = "product-card__img-placeholder";
-    ph.textContent = p.nombre;
+    const phText = document.createElement("span");
+    phText.textContent = p.nombre;
+    ph.appendChild(phText);
     imgWrap.appendChild(ph);
   }
   if (p.promo && p.enStock !== false) {
@@ -468,14 +520,10 @@ function renderCard(p) {
   const body = document.createElement("div");
   body.className = "product-card__body";
 
-  // NUEVO EN CONTENEDOR META: Agrupa título y precio para alineación vertical en móviles
-  const metaWrap = document.createElement("div");
-  metaWrap.className = "product-card__meta";
-
   const name = document.createElement("h3");
   name.className = "product-card__name";
   name.textContent = p.nombre;
-  metaWrap.appendChild(name);
+  body.appendChild(name);
 
   const priceRow = document.createElement("div");
   priceRow.className = "product-card__price-row";
@@ -496,14 +544,13 @@ function renderCard(p) {
     price.textContent = fmt.format(p.precio || 0);
     priceRow.appendChild(price);
   }
-  metaWrap.appendChild(priceRow);
-  body.appendChild(metaWrap);
+  body.appendChild(priceRow);
 
   if (p.promo && p.promoTexto && p.enStock !== false) {
     const promoText = document.createElement("p");
     promoText.className = "product-card__promo-text";
     promoText.textContent = p.promoTexto;
-    metaWrap.appendChild(promoText);
+    body.appendChild(promoText);
   }
 
   if (p.enStock === false) {
@@ -563,9 +610,10 @@ const productosQuery = query(
 onSnapshot(
   productosQuery,
   (snapshot) => {
-    const productos = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    todosLosProductos = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     elEstado.classList.add("hidden");
-    renderCatalogo(productos);
+    renderNavCategorias(todosLosProductos);
+    aplicarFiltros();
   },
   (error) => {
     console.error(error);
