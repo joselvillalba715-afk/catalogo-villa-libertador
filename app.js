@@ -73,7 +73,6 @@ function guardarCarrito() {
     localStorage.setItem(CART_KEY, JSON.stringify(carrito));
   } catch {
     // si localStorage no está disponible, el carrito sigue funcionando
-    // solo durante esta visita
   }
 }
 
@@ -425,18 +424,18 @@ function aplicarFiltros() {
 elBuscador.addEventListener("input", aplicarFiltros);
 
 function renderCatalogo(productos) {
-  if (todosLosProductos.length === 0) {
-    elCatalogo.innerHTML = `<p class="state-message">Por el momento no hay productos cargados. Volvé a revisar más tarde.</p>`;
-    elCatNav.innerHTML = "";
-    return;
-  }
-
-  if (productos.length === 0) {
-    elCatalogo.innerHTML = `
-      <div class="no-results">
-        <p class="no-results__title">No encontramos productos con ese nombre</p>
-        <p>Probá con otra palabra o revisá las categorías de arriba.</p>
-      </div>`;
+  // CORRECCIÓN: Se evalúa 'productos' en lugar de 'todosLosProductos' para evitar el bloqueo inicial
+  if (!productos || productos.length === 0) {
+    if (todosLosProductos.length === 0) {
+      elCatalogo.innerHTML = `<p class="state-message">Por el momento no hay productos cargados. Volvé a revisar más tarde.</p>`;
+      elCatNav.innerHTML = "";
+    } else {
+      elCatalogo.innerHTML = `
+        <div class="no-results">
+          <p class="no-results__title">No encontramos productos con ese nombre</p>
+          <p>Probá con otra palabra o revisá las categorías de arriba.</p>
+        </div>`;
+    }
     return;
   }
 
@@ -502,18 +501,17 @@ function renderCard(p) {
   }
   card.appendChild(imgWrap);
 
-// Cuerpo
+  // Cuerpo
   const body = document.createElement("div");
   body.className = "product-card__body";
 
-  // NUEVO: Contenedor para agrupar texto y precio a la izquierda en celular
   const metaWrap = document.createElement("div");
   metaWrap.className = "product-card__meta";
 
   const name = document.createElement("h3");
   name.className = "product-card__name";
   name.textContent = p.nombre;
-  metaWrap.appendChild(name); // Se añade al nuevo contenedor
+  metaWrap.appendChild(name);
 
   const priceRow = document.createElement("div");
   priceRow.className = "product-card__price-row";
@@ -534,8 +532,8 @@ function renderCard(p) {
     price.textContent = fmt.format(p.precio || 0);
     priceRow.appendChild(price);
   }
-  metaWrap.appendChild(priceRow); // Se añade al nuevo contenedor
-  body.appendChild(metaWrap);    // Añadimos el bloque de textos al cuerpo
+  metaWrap.appendChild(priceRow);
+  body.appendChild(metaWrap);
 
   if (p.promo && p.promoTexto && p.enStock !== false) {
     const promoText = document.createElement("p");
@@ -589,7 +587,6 @@ function renderCard(p) {
 
   card.appendChild(body);
   return card;
-
 }
 
 // ----- Suscripción en tiempo real -----
