@@ -590,6 +590,8 @@ function renderCard(p) {
   card.appendChild(body);
   return card;
 
+}
+
 // ----- Suscripción en tiempo real -----
 const productosQuery = query(
   collection(db, "productos"),
