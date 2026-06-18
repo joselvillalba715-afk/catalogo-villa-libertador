@@ -110,7 +110,6 @@ textarea:focus-visible {
 }
 
 /* ---------- Category nav ---------- */
-
 .cat-nav {
   position: sticky;
   top: var(--search-bar-height, 0px);
@@ -130,26 +129,19 @@ textarea:focus-visible {
   scrollbar-width: none;
 }
 
-.cat-nav__scroll::-webkit-scrollbar {
-  display: none;
-}
+/* NUEVO: En celulares rompe en varias filas y se ven todas juntas */
+@media (max-width: 576px) {
+  .cat-nav__scroll {
+    flex-wrap: wrap; /* Permite que los botones bajen si no entran */
+    overflow-x: visible; /* Desactiva el scroll oculto */
+    padding: 0 12px;
+    justify-content: center; /* Centra los botones para que quede armónico */
+  }
 
-.cat-chip {
-  flex: 0 0 auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--ink);
-  border-radius: 999px;
-  padding: 7px 16px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.cat-chip:hover {
-  border-color: var(--primary-light);
-  color: var(--primary);
+  .cat-chip {
+    padding: 6px 12px !important; /* Los hace un poquito más compactos */
+    font-size: 0.8rem !important;
+  }
 }
 
 /* ---------- Main / sections ---------- */
