@@ -16,7 +16,8 @@ const db = getFirestore(app);
 
 const elEstado = document.getElementById("estado");
 const elCatalogo = document.getElementById("catalogo");
-const elCatNav = document.getElementById("cat-nav-scroll");
+// CORRECCIÓN: Apuntamos al ID 'cat-nav' o la clase de tu select desplegable
+const elCatNav = document.getElementById("cat-nav") || document.querySelector(".cat-selector__dropdown");
 const elUltimaActualizacion = document.getElementById("ultima-actualizacion");
 const elBuscador = document.getElementById("buscador");
 
@@ -43,8 +44,12 @@ function waLinkGeneral() {
   return `${waBase}?text=${encodeURIComponent(texto)}`;
 }
 
-document.getElementById("wa-footer-link").href = waLinkGeneral();
-elUltimaActualizacion.textContent = "Stock y precios actualizados en el momento";
+if (document.getElementById("wa-footer-link")) {
+  document.getElementById("wa-footer-link").href = waLinkGeneral();
+}
+if (elUltimaActualizacion) {
+  elUltimaActualizacion.textContent = "Stock y precios actualizados en el momento";
+}
 
 // ----- Formato de precio -----
 const fmt = new Intl.NumberFormat("es-AR", {
@@ -83,6 +88,7 @@ function totalItems() {
 }
 
 function actualizarBadge() {
+  if (!elCartBadge) return;
   const total = totalItems();
   if (total > 0) {
     elCartBadge.textContent = total;
@@ -178,64 +184,67 @@ function mostrarVistaDatos() {
   elCartViewDatos.classList.remove("hidden");
 }
 
-elBtnVolverItems.addEventListener("click", mostrarVistaItems);
+if (elBtnVolverItems) {
+  elBtnVolverItems.addEventListener("click", mostrarVistaItems);
+}
 
 // ----- Confirmación del pedido: guarda en Firestore y abre WhatsApp -----
+if (elFormDatosCliente) {
+  elFormDatosCliente.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    elDatosClienteError.textContent = "";
 
-elFormDatosCliente.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  elDatosClienteError.textContent = "";
+    const nombreCliente = document.getElementById("cliente-nombre").value.trim();
+    const whatsappCliente = document
+      .getElementById("cliente-whatsapp")
+      .value.trim()
+      .replace(/[^0-9]/g, "");
+    const formaPago = document.getElementById("cliente-pago").value;
 
-  const nombreCliente = document.getElementById("cliente-nombre").value.trim();
-  const whatsappCliente = document
-    .getElementById("cliente-whatsapp")
-    .value.trim()
-    .replace(/[^0-9]/g, "");
-  const formaPago = document.getElementById("cliente-pago").value;
+    if (!nombreCliente || !whatsappCliente || !formaPago) {
+      elDatosClienteError.textContent =
+        "Completá tu nombre, tu número de WhatsApp y la forma de pago.";
+      return;
+    }
 
-  if (!nombreCliente || !whatsappCliente || !formaPago) {
-    elDatosClienteError.textContent =
-      "Completá tu nombre, tu número de WhatsApp y la forma de pago.";
-    return;
-  }
+    const items = Object.entries(carrito).map(([id, it]) => ({
+      productoId: id,
+      nombre: it.nombre,
+      cantidad: it.cantidad,
+      precioUnitario: it.precioUnitario,
+      subtotal: it.precioUnitario * it.cantidad,
+    }));
 
-  const items = Object.entries(carrito).map(([id, it]) => ({
-    productoId: id,
-    nombre: it.nombre,
-    cantidad: it.cantidad,
-    precioUnitario: it.precioUnitario,
-    subtotal: it.precioUnitario * it.cantidad,
-  }));
+    elBtnConfirmarPedido.disabled = true;
+    elBtnConfirmarPedido.textContent = "Enviando…";
 
-  elBtnConfirmarPedido.disabled = true;
-  elBtnConfirmarPedido.textContent = "Enviando…";
+    try {
+      await addDoc(collection(db, "pedidos"), {
+        clienteNombre: nombreCliente,
+        clienteWhatsapp: whatsappCliente,
+        formaPago,
+        items,
+        total: totalCarrito(),
+        creadoEn: serverTimestamp(),
+      });
 
-  try {
-    await addDoc(collection(db, "pedidos"), {
-      clienteNombre: nombreCliente,
-      clienteWhatsapp: whatsappCliente,
-      formaPago,
-      items,
-      total: totalCarrito(),
-      creadoEn: serverTimestamp(),
-    });
+      const link = mensajeWhatsAppCarrito(nombreCliente, formaPago);
+      window.open(link, "_blank", "noopener");
 
-    const link = mensajeWhatsAppCarrito(nombreCliente, formaPago);
-    window.open(link, "_blank", "noopener");
-
-    vaciarCarrito();
-    elFormDatosCliente.reset();
-    elCartBackdrop.classList.add("hidden");
-    mostrarVistaItems();
-  } catch (err) {
-    console.error(err);
-    elDatosClienteError.textContent =
-      "No se pudo registrar el pedido. Probá de nuevo en unos segundos.";
-  } finally {
-    elBtnConfirmarPedido.disabled = false;
-    elBtnConfirmarPedido.textContent = "Confirmar y enviar por WhatsApp";
-  }
-});
+      vaciarCarrito();
+      elFormDatosCliente.reset();
+      elCartBackdrop.classList.add("hidden");
+      mostrarVistaItems();
+    } catch (err) {
+      console.error(err);
+      elDatosClienteError.textContent =
+        "No se pudo registrar el pedido. Probá de nuevo en unos segundos.";
+    } finally {
+      elBtnConfirmarPedido.disabled = false;
+      elBtnConfirmarPedido.textContent = "Confirmar y enviar por WhatsApp";
+    }
+  });
+}
 
 function renderCarrito() {
   const items = Object.entries(carrito);
@@ -313,21 +322,27 @@ function renderCarrito() {
 }
 
 // ----- Apertura / cierre del panel -----
-elCartFloat.addEventListener("click", () => {
-  renderCarrito();
-  mostrarVistaItems();
-  elCartBackdrop.classList.remove("hidden");
-});
+if (elCartFloat) {
+  elCartFloat.addEventListener("click", () => {
+    renderCarrito();
+    mostrarVistaItems();
+    elCartBackdrop.classList.remove("hidden");
+  });
+}
 
-elCartClose.addEventListener("click", () => {
-  elCartBackdrop.classList.add("hidden");
-});
-
-elCartBackdrop.addEventListener("click", (e) => {
-  if (e.target === elCartBackdrop) {
+if (elCartClose) {
+  elCartClose.addEventListener("click", () => {
     elCartBackdrop.classList.add("hidden");
-  }
-});
+  });
+}
+
+if (elCartBackdrop) {
+  elCartBackdrop.addEventListener("click", (e) => {
+    if (e.target === elCartBackdrop) {
+      elCartBackdrop.classList.add("hidden");
+    }
+  });
+}
 
 actualizarBadge();
 
@@ -396,22 +411,42 @@ function normalizarTexto(texto) {
 
 let todosLosProductos = [];
 
+// CORRECCIÓN: Renderiza etiquetas <option> dentro del desplegable select
 function renderNavCategorias(productos) {
+  if (!elCatNav) return;
   const categorias = [...new Set(productos.map((p) => p.categoria || "Otros"))];
-  elCatNav.innerHTML = "";
+  
+  // Guardamos el valor seleccionado antes de limpiar por si Firebase se actualiza
+  const valorSeleccionadoPrevio = elCatNav.value;
+
+  elCatNav.innerHTML = `<option value="">Todas las categorías</option>`;
+  
   for (const cat of categorias) {
-    const a = document.createElement("a");
-    a.href = `#cat-${slugify(cat)}`;
-    a.className = "cat-chip";
-    a.textContent = cat;
-    elCatNav.appendChild(a);
+    const opt = document.createElement("option");
+    opt.value = cat;
+    opt.textContent = cat;
+    elCatNav.appendChild(opt);
+  }
+
+  // Devolvemos la selección previa si existía
+  if (valorSeleccionadoPrevio) {
+    elCatNav.value = valorSeleccionadoPrevio;
   }
 }
 
+// CORRECCIÓN: Ahora filtra tanto por texto de buscador como por el <select> de categorías
 function aplicarFiltros() {
-  const textoBusqueda = normalizarTexto(elBuscador.value.trim());
+  const textoBusqueda = normalizarTexto(elBuscador ? elBuscador.value.trim() : "");
+  const categoriaSeleccionada = elCatNav ? elCatNav.value : "";
 
   let filtrados = todosLosProductos;
+
+  // Filtro 1: Desplegable Categoría
+  if (categoriaSeleccionada) {
+    filtrados = filtrados.filter((p) => (p.categoria || "Otros") === categoriaSeleccionada);
+  }
+
+  // Filtro 2: Texto de Buscador
   if (textoBusqueda) {
     filtrados = filtrados.filter((p) =>
       normalizarTexto(p.nombre).includes(textoBusqueda)
@@ -421,19 +456,27 @@ function aplicarFiltros() {
   renderCatalogo(filtrados);
 }
 
-elBuscador.addEventListener("input", aplicarFiltros);
+if (elBuscador) {
+  elBuscador.addEventListener("input", aplicarFiltros);
+}
+
+// CORRECCIÓN: Agregamos el escuchador del evento 'change' para el menú desplegable
+if (elCatNav) {
+  elCatNav.addEventListener("change", aplicarFiltros);
+}
 
 function renderCatalogo(productos) {
-  // CORRECCIÓN: Se evalúa 'productos' en lugar de 'todosLosProductos' para evitar el bloqueo inicial
+  if (!elCatalogo) return;
+  
   if (!productos || productos.length === 0) {
     if (todosLosProductos.length === 0) {
       elCatalogo.innerHTML = `<p class="state-message">Por el momento no hay productos cargados. Volvé a revisar más tarde.</p>`;
-      elCatNav.innerHTML = "";
+      if (elCatNav) elCatNav.innerHTML = `<option value="">Todas las categorías</option>`;
     } else {
       elCatalogo.innerHTML = `
         <div class="no-results">
-          <p class="no-results__title">No encontramos productos con ese nombre</p>
-          <p>Probá con otra palabra o revisá las categorías de arriba.</p>
+          <p class="no-results__title">No encontramos productos</p>
+          <p>Probá con otra palabra o revisá la categoría elegida.</p>
         </div>`;
     }
     return;
@@ -600,15 +643,17 @@ onSnapshot(
   productosQuery,
   (snapshot) => {
     todosLosProductos = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    elEstado.classList.add("hidden");
+    if (elEstado) elEstado.classList.add("hidden");
     renderNavCategorias(todosLosProductos);
-    aplicarFiltros();
+    aplicarFiltros(); // Esto ejecuta la carga inicial apenas Firebase responde
   },
   (error) => {
     console.error(error);
-    elEstado.textContent =
-      "No se pudo cargar el catálogo. Revisá la configuración de Firebase (firebase-config.js).";
-    elEstado.classList.remove("hidden");
+    if (elEstado) {
+      elEstado.textContent =
+        "No se pudo cargar el catálogo. Revisá la configuración de Firebase (firebase-config.js).";
+      elEstado.classList.remove("hidden");
+    }
   }
 );
 
