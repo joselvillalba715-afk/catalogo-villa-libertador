@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel de Administración - Villa Libertador</title>
+  <!-- CORREGIDO: Ahora apunta a styles.css con la "s" al final -->
   <link rel="stylesheet" href="styles.css">
   <style>
     /* Estilos rápidos para la nueva barra de búsqueda fija */
@@ -71,6 +72,11 @@
 </head>
 <body>
 
+  <!-- ============================================================ -->
+  <!-- SECCIÓN DE AUTENTICACIÓN (BLOQUE ÚNICO FORZADO)             -->
+  <!-- ============================================================ -->
+
+  <!-- LOGIN -->
   <div class="caja-login-fija" id="login-card">
     <h1 style="font-family:'Oswald',sans-serif; text-transform:uppercase; text-align:center; font-size:1.6rem; color:#1f4d3a; margin:0 0 20px;">Acceso al panel</h1>
     <form id="login-form">
@@ -92,6 +98,7 @@
     </form>
   </div>
 
+  <!-- CREAR CUENTA -->
   <div class="caja-login-fija hidden" id="registro-card">
     <h1 style="font-family:'Oswald',sans-serif; text-transform:uppercase; text-align:center; font-size:1.6rem; color:#1f4d3a; margin:0 0 10px;">Crear cuenta</h1>
     <p class="helper-text" style="text-align:center; margin-bottom:15px;">
@@ -114,6 +121,7 @@
     </form>
   </div>
 
+  <!-- RECUPERAR CONTRASEÑA -->
   <div class="caja-login-fija hidden" id="reset-card">
     <h1 style="font-family:'Oswald',sans-serif; text-transform:uppercase; text-align:center; font-size:1.6rem; color:#1f4d3a; margin:0 0 20px;">Recuperar contraseña</h1>
     <form id="reset-form">
@@ -131,6 +139,10 @@
   </div>
 
 
+  <!-- ============================================================ -->
+  <!-- ENTORNO PRINCIPAL DEL ADMINISTRADOR (SHELL)                  -->
+  <!-- ============================================================ -->
+
   <div class="admin-shell hidden" id="admin-shell">
     <header class="admin-header">
       <div class="admin-header__brand">
@@ -147,14 +159,17 @@
 
     <main class="admin-main">
 
+      <!-- PESTAÑA: CATÁLOGO -->
       <section id="tab-catalogo">
         
+        <!-- Barra de búsqueda dinámica integrada para el Administrator -->
         <div class="search-bar">
           <input type="text" id="admin-buscador" placeholder="🔍 Buscar por nombre, código o categoría en el catálogo..." />
         </div>
 
         <div class="admin-catalog-layout" style="margin-top: 15px;">
           
+          <!-- Bloque del Formulario (A la derecha en escritorio) -->
           <div class="admin-form-box card">
             <h3>Agregar Producto</h3>
             <form id="form-nuevo">
@@ -214,6 +229,7 @@
               <p class="error-text" id="nuevo-error"></p>
             </form>
 
+            <!-- Apartado de Importación Masiva por archivo CSV -->
             <div style="margin-top:25px; padding-top:20px; border-top:1px dashed #cbd5e1;">
               <h4>Importación desde Excel (CSV)</h4>
               <p class="helper-text">Cargá un archivo .csv con: codigo, nombre, precio, categoria, enstock</p>
@@ -222,6 +238,7 @@
             </div>
           </div>
 
+          <!-- Lista de Filas de Productos (A la izquierda en escritorio) -->
           <div class="admin-list-box">
             <div class="card">
               <h3>Productos registrados</h3>
@@ -235,6 +252,7 @@
         </div>
       </section>
 
+      <!-- PESTAÑA: PEDIDOS -->
       <section id="tab-pedidos" class="hidden">
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:20px;">
@@ -273,6 +291,11 @@
     </main>
   </div>
 
+  <!-- ============================================================ -->
+  <!-- MODALES FLOTANTES DE ACCIÓN                                  -->
+  <!-- ============================================================ -->
+
+  <!-- MODAL: EDICIÓN DE PRODUCTO -->
   <div class="modal-overlay hidden" id="modal-editar">
     <div class="modal-content">
       <h3>Modificar Producto</h3>
@@ -338,6 +361,7 @@
     </div>
   </div>
 
+  <!-- MODAL: CONFIRMACIÓN DE IMPORTACIÓN MASIVA -->
   <div class="modal-overlay hidden" id="modal-importar">
     <div class="modal-content" style="max-width: 850px; width:90%;">
       <h3>Previsualización de Importación</h3>
