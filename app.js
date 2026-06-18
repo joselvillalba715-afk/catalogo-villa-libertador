@@ -20,22 +20,6 @@ const elCatNav = document.getElementById("cat-nav-scroll");
 const elUltimaActualizacion = document.getElementById("ultima-actualizacion");
 const elBuscador = document.getElementById("buscador");
 
-elBuscador.addEventListener("input", aplicarFiltros);
-
-function ajustarStickyNav() {
-  const searchBar = document.querySelector(".search-bar");
-  if (searchBar) {
-    document.documentElement.style.setProperty(
-      "--search-bar-height",
-      `${searchBar.offsetHeight}px`
-    );
-  }
-}
-
-window.addEventListener("resize", ajustarStickyNav);
-window.addEventListener("load", ajustarStickyNav);
-ajustarStickyNav();
-
 const elCartFloat = document.getElementById("cart-float");
 const elCartBadge = document.getElementById("cart-badge");
 const elCartBackdrop = document.getElementById("cart-backdrop");
@@ -435,10 +419,12 @@ function aplicarFiltros() {
     );
   }
 
-  renderCatalogo(filtrados, textoBusqueda.length > 0);
+  renderCatalogo(filtrados);
 }
 
-function renderCatalogo(productos, esBusqueda) {
+elBuscador.addEventListener("input", aplicarFiltros);
+
+function renderCatalogo(productos) {
   if (todosLosProductos.length === 0) {
     elCatalogo.innerHTML = `<p class="state-message">Por el momento no hay productos cargados. Volvé a revisar más tarde.</p>`;
     elCatNav.innerHTML = "";
@@ -520,10 +506,14 @@ function renderCard(p) {
   const body = document.createElement("div");
   body.className = "product-card__body";
 
+  // Agrupa título y precio para alineación vertical en móviles
+  const metaWrap = document.createElement("div");
+  metaWrap.className = "product-card__meta";
+
   const name = document.createElement("h3");
   name.className = "product-card__name";
   name.textContent = p.nombre;
-  body.appendChild(name);
+  metaWrap.appendChild(name);
 
   const priceRow = document.createElement("div");
   priceRow.className = "product-card__price-row";
@@ -544,13 +534,14 @@ function renderCard(p) {
     price.textContent = fmt.format(p.precio || 0);
     priceRow.appendChild(price);
   }
-  body.appendChild(priceRow);
+  metaWrap.appendChild(priceRow);
+  body.appendChild(metaWrap);
 
   if (p.promo && p.promoTexto && p.enStock !== false) {
     const promoText = document.createElement("p");
     promoText.className = "product-card__promo-text";
     promoText.textContent = p.promoTexto;
-    body.appendChild(promoText);
+    metaWrap.appendChild(promoText);
   }
 
   if (p.enStock === false) {
@@ -622,3 +613,17 @@ onSnapshot(
     elEstado.classList.remove("hidden");
   }
 );
+
+function ajustarStickyNav() {
+  const searchBar = document.querySelector(".search-bar");
+  if (searchBar) {
+    document.documentElement.style.setProperty(
+      "--search-bar-height",
+      `${searchBar.offsetHeight}px`
+    );
+  }
+}
+
+window.addEventListener("resize", ajustarStickyNav);
+window.addEventListener("load", ajustarStickyNav);
+ajustarStickyNav();
