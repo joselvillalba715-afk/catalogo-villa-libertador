@@ -502,18 +502,18 @@ function renderCard(p) {
   }
   card.appendChild(imgWrap);
 
-  // Cuerpo
+// Cuerpo
   const body = document.createElement("div");
   body.className = "product-card__body";
 
-  // Agrupa título y precio para alineación vertical en móviles
+  // NUEVO: Contenedor para agrupar texto y precio a la izquierda en celular
   const metaWrap = document.createElement("div");
   metaWrap.className = "product-card__meta";
 
   const name = document.createElement("h3");
   name.className = "product-card__name";
   name.textContent = p.nombre;
-  metaWrap.appendChild(name);
+  metaWrap.appendChild(name); // Se añade al nuevo contenedor
 
   const priceRow = document.createElement("div");
   priceRow.className = "product-card__price-row";
@@ -534,8 +534,8 @@ function renderCard(p) {
     price.textContent = fmt.format(p.precio || 0);
     priceRow.appendChild(price);
   }
-  metaWrap.appendChild(priceRow);
-  body.appendChild(metaWrap);
+  metaWrap.appendChild(priceRow); // Se añade al nuevo contenedor
+  body.appendChild(metaWrap);    // Añadimos el bloque de textos al cuerpo
 
   if (p.promo && p.promoTexto && p.enStock !== false) {
     const promoText = document.createElement("p");
@@ -589,7 +589,6 @@ function renderCard(p) {
 
   card.appendChild(body);
   return card;
-}
 
 // ----- Suscripción en tiempo real -----
 const productosQuery = query(
