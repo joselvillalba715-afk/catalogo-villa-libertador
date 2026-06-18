@@ -10,8 +10,331 @@
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
+<body><!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel de administración — Catálogo Villa Libertador</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
 <body>
 
+  <div class="login-card" id="login-card">
+    <h1>Acceso al panel</h1>
+    <form id="login-form">
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" required autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="login-password">Contraseña</label>
+        <input type="password" id="login-password" required autocomplete="current-password" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+      <p class="error-text" id="login-error"></p>
+      <p class="helper-text" style="text-align:center; margin-top:10px;">
+        <a href="#" id="link-olvide-password">Olvidé mi contraseña</a>
+        ·
+        <a href="#" id="link-crear-cuenta">Crear cuenta</a>
+      </p>
+    </form>
+  </div>
+
+  <div class="login-card hidden" id="registro-card">
+    <h1>Crear cuenta</h1>
+    <p class="helper-text" style="text-align:center; margin-top:-6px;">
+      Solo para compañeros autorizados por el administrador.
+    </p>
+    <form id="registro-form">
+      <div class="field">
+        <label for="registro-email">Email</label>
+        <input type="email" id="registro-email" required autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="registro-password">Elegí una contraseña</label>
+        <input type="password" id="registro-password" required minlength="6" autocomplete="new-password" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Crear mi cuenta</button>
+      <p class="error-text" id="registro-error"></p>
+      <p class="helper-text" style="text-align:center; margin-top:10px;">
+        <a href="#" id="link-volver-login-registro">Volver a iniciar sesión</a>
+      </p>
+    </form>
+  </div>
+
+  <div class="login-card hidden" id="reset-card">
+    <h1>Recuperar contraseña</h1>
+    <form id="reset-form">
+      <div class="field">
+        <label for="reset-email">Email</label>
+        <input type="email" id="reset-email" required autocomplete="username" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Enviar link de recuperación</button>
+      <p class="error-text" id="reset-error"></p>
+      <p class="helper-text" id="reset-success" style="text-align:center;"></p>
+      <p class="helper-text" style="text-align:center; margin-top:10px;">
+        <a href="#" id="link-volver-login">Volver a iniciar sesión</a>
+      </p>
+    </form>
+  </div>
+
+  <div class="admin-shell hidden" id="admin-shell">
+    <div class="admin-header">
+      <h1>Catálogo · Panel</h1>
+      <div style="display:flex; gap:8px;">
+        <a class="btn btn-secondary" href="index.html" target="_blank" rel="noopener">Ver catálogo</a>
+        <button class="btn btn-secondary" id="btn-logout">Cerrar sesión</button>
+      </div>
+    </div>
+
+    <div class="admin-tabs" id="admin-tabs">
+      <button type="button" class="admin-tab admin-tab--active" data-tab="catalogo">Catálogo</button>
+      <button type="button" class="admin-tab" data-tab="pedidos">Pedidos</button>
+    </div>
+
+    <div id="tab-catalogo">
+      <div class="panel">
+        <h2>Agregar producto</h2>
+        <form id="form-nuevo">
+          <div class="field-row">
+            <div class="field">
+              <label for="n-nombre">Nombre</label>
+              <input type="text" id="n-nombre" required />
+            </div>
+            <div class="field">
+              <label for="n-codigo">Código (sistema de gestión)</label>
+              <input type="text" id="n-codigo" placeholder="Ej: COC225" />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="n-categoria">Categoría</label>
+              <input type="text" id="n-categoria" required list="lista-categorias" placeholder="Elegí o escribí una nueva" autocomplete="off" />
+              <datalist id="lista-categorias"></datalist>
+            </div>
+            <div class="field">
+              <label for="n-orden">Orden</label>
+              <input type="number" id="n-orden" min="0" step="1" value="0" />
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="n-precio">Precio</label>
+              <input type="number" id="n-precio" min="0" step="0.01" required />
+            </div>
+          </div>
+          <p class="helper-text">El orden define la posición dentro de la categoría (menor número = aparece primero). La categoría con menor orden de su primer producto se muestra primero en el menú.</p>
+
+          <div class="checkbox-field">
+            <input type="checkbox" id="n-stock" checked />
+            <label for="n-stock">En stock</label>
+          </div>
+
+          <div class="checkbox-field">
+            <input type="checkbox" id="n-promo" />
+            <label for="n-promo">Tiene promoción</label>
+          </div>
+
+          <div id="n-promo-fields" class="hidden">
+            <div class="field-row">
+              <div class="field">
+                <label for="n-precio-promo">Precio promocional</label>
+                <input type="number" id="n-precio-promo" min="0" step="0.01" />
+              </div>
+              <div class="field">
+                <label for="n-promo-texto">Texto de la promo</label>
+                <input type="text" id="n-promo-texto" placeholder="Ej: 2x1, llevando 6 unidades" />
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="n-imagen">Foto del producto</label>
+            <input type="file" id="n-imagen" accept="image/*" />
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">Agregar al catálogo</button>
+          <p class="error-text" id="nuevo-error"></p>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h2>Importar productos desde CSV</h2>
+        <p class="helper-text">
+          El archivo debe tener las columnas: <strong>codigo, nombre, precio, categoria, enStock</strong>.
+          En "enStock" usá <strong>true</strong> o <strong>false</strong>.
+        </p>
+        <div class="field">
+          <input type="file" id="csv-input" accept=".csv" />
+        </div>
+        <p class="error-text" id="csv-error"></p>
+      </div>
+
+      <div class="panel">
+        <h2>Productos cargados</h2>
+        
+        <div class="field" style="margin-bottom: 16px;">
+          <input 
+            type="search" 
+            id="admin-buscador" 
+            class="field input"
+            placeholder="🔍 Buscar producto por nombre para editar o controlar..." 
+            style="width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.95rem; background: var(--bg);"
+            autocomplete="off"
+          />
+        </div>
+
+        <p class="helper-text" id="lista-vacia">Todavía no hay productos.</p>
+        <div class="admin-product-list" id="lista-productos"></div>
+      </div>
+    </div>
+
+    <div id="tab-pedidos" class="hidden">
+      <div class="panel">
+        <div class="admin-header" style="margin-bottom: 10px;">
+          <h2 style="margin:0;">Pedidos recibidos</h2>
+          <button class="btn btn-secondary" id="btn-exportar-pedidos">Exportar a CSV</button>
+        </div>
+
+        <div class="order-filters">
+          <div class="field-row">
+            <div class="field">
+              <label for="filtro-desde">Desde</label>
+              <input type="date" id="filtro-desde" />
+            </div>
+            <div class="field">
+              <label for="filtro-hasta">Hasta</label>
+              <input type="date" id="filtro-hasta" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="filtro-cliente">Buscar por nombre de cliente</label>
+            <input type="text" id="filtro-cliente" placeholder="Ej: Juan Pérez" autocomplete="off" />
+          </div>
+          <button type="button" class="btn btn-secondary" id="btn-limpiar-filtros">Limpiar filtros</button>
+        </div>
+
+        <p class="helper-text" id="pedidos-vacio">Todavía no llegaron pedidos.</p>
+        <p class="helper-text hidden" id="pedidos-sin-resultados">Ningún pedido coincide con el filtro aplicado.</p>
+        <div class="orders-list" id="lista-pedidos"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="modal-editar">
+    <div class="modal">
+      <h2>Editar producto</h2>
+      <form id="form-editar">
+        <input type="hidden" id="e-id" />
+        <div class="field-row">
+          <div class="field">
+            <label for="e-nombre">Nombre</label>
+            <input type="text" id="e-nombre" required />
+          </div>
+          <div class="field">
+            <label for="e-codigo">Código (sistema de gestión)</label>
+            <input type="text" id="e-codigo" placeholder="Ej: COC225" />
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="e-categoria">Categoría</label>
+            <input type="text" id="e-categoria" required list="lista-categorias" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="e-orden">Orden</label>
+            <input type="number" id="e-orden" min="0" step="1" />
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="e-precio">Precio</label>
+            <input type="number" id="e-precio" min="0" step="0.01" required />
+          </div>
+        </div>
+
+        <div class="checkbox-field">
+          <input type="checkbox" id="e-stock" />
+          <label for="e-stock">En stock</label>
+        </div>
+
+        <div class="checkbox-field">
+          <input type="checkbox" id="e-promo" />
+          <label for="e-promo">Tiene promoción</label>
+        </div>
+
+        <div id="e-promo-fields" class="hidden">
+          <div class="field-row">
+            <div class="field">
+              <label for="e-precio-promo">Precio promocional</label>
+              <input type="number" id="e-precio-promo" min="0" step="0.01" />
+            </div>
+            <div class="field">
+              <label for="e-promo-texto">Texto de la promo</label>
+              <input type="text" id="e-promo-texto" />
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="e-imagen">Reemplazar foto (opcional)</label>
+          <input type="file" id="e-imagen" accept="image/*" />
+        </div>
+
+        <p class="error-text" id="editar-error"></p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancelar-editar">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="modal-importar">
+    <div class="modal modal--ancho">
+      <h2>Revisar importación</h2>
+      <p class="helper-text">
+        Los productos en <strong>verde</strong> son nuevos y se van a agregar.
+        Los productos en <strong>amarillo</strong> ya existen (mismo código) — elegí si querés actualizarlos o dejarlos como están.
+      </p>
+      <div class="helper-text" id="csv-resumen" style="margin-bottom:10px;"></div>
+      <div class="import-table-wrap">
+        <table class="import-table" id="import-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Código</th>
+              <th>Nombre</th>
+              <th>Categoría</th>
+              <th>Precio</th>
+              <th>Stock</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="import-table-body"></tbody>
+        </table>
+      </div>
+      <p class="error-text" id="importar-error"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="btn-cancelar-importar">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-confirmar-importar">Importar seleccionados</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
   <!-- LOGIN -->
   <div class="login-card" id="login-card">
     <h1>Acceso al panel</h1>
