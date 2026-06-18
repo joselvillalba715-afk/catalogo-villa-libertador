@@ -959,13 +959,11 @@ let suscripcionPedidos = null;
 
 onAuthStateChanged(auth, (user) => {
   if (user) {
-    // Escondemos logins y mostramos el entorno completo de control
     if (loginCard) loginCard.classList.add("hidden");
     if (registroCard) registroCard.classList.add("hidden");
     if (resetCard) resetCard.classList.add("hidden");
     if (adminShell) adminShell.classList.remove("hidden");
 
-    // Conectamos la escucha en tiempo real de Firebase con sesión activa
     if (!suscripcionProductos) {
       const productosQuery = query(
         collection(db, "productos"),
@@ -977,6 +975,7 @@ onAuthStateChanged(auth, (user) => {
         productosCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
         aplicarFiltroAdmin();
         actualizarListaCategorias();
+        renderCategoriasAdmin(); // ← LÍNEA AGREGADA
       }, (error) => {
         console.error("Error en productos:", error);
       });
@@ -994,7 +993,6 @@ onAuthStateChanged(auth, (user) => {
     }
 
   } else {
-    // Si no está logueado, destruimos ganchos activos para evitar fugas de memoria y bloqueos
     if (suscripcionProductos) {
       suscripcionProductos();
       suscripcionProductos = null;
@@ -1008,7 +1006,6 @@ onAuthStateChanged(auth, (user) => {
     if (loginCard) loginCard.classList.remove("hidden");
   }
 });
-
 
 // ============================================================
 // GESTIÓN DE CATEGORÍAS
