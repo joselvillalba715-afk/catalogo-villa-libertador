@@ -61,6 +61,7 @@ const nPromoFields = document.getElementById("n-promo-fields");
 
 const listaProductos = document.getElementById("lista-productos");
 const listaVacia = document.getElementById("lista-vacia");
+const elAdminBuscador = document.getElementById("admin-buscador"); // NUEVO: Elemento del input buscador admin
 
 const modalEditar = document.getElementById("modal-editar");
 const formEditar = document.getElementById("form-editar");
@@ -151,7 +152,6 @@ registroForm.addEventListener("submit", async (e) => {
     }
 
     await createUserWithEmailAndPassword(auth, email, password);
-    // Si el alta funciona, onAuthStateChanged va a mostrar el panel automáticamente
   } catch (err) {
     console.error(err);
     if (err.code === "auth/email-already-in-use") {
@@ -271,12 +271,13 @@ const productosQuery = query(
 
 onSnapshot(productosQuery, (snapshot) => {
   productosCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-  renderLista();
+  aplicarFiltroAdmin(); // NUEVO: En vez de llamar directo a renderLista, procesamos el filtro primero
   actualizarListaCategorias();
 });
 
 function actualizarListaCategorias() {
   const datalist = document.getElementById("lista-categorias");
+  if (!datalist) return;
   const categorias = [...new Set(productosCache.map((p) => p.categoria).filter(Boolean))];
   categorias.sort((a, b) => a.localeCompare(b, "es"));
   datalist.innerHTML = "";
@@ -287,11 +288,34 @@ function actualizarListaCategorias() {
   }
 }
 
-function renderLista() {
-  listaProductos.innerHTML = "";
-  listaVacia.classList.toggle("hidden", productosCache.length > 0);
+// NUEVO: Función para interceptar y filtrar los productos cargados en el panel administrador
+function aplicarFiltroAdmin() {
+  const textoBusqueda = elAdminBuscador ? normalizarTexto(elAdminBuscador.value.trim()) : "";
+  
+  let filtrados = productosCache;
+  
+  if (textoBusqueda) {
+    filtrados = productosCache.filter((p) =>
+      normalizarTexto(p.nombre).includes(textoBusqueda) || 
+      normalizarTexto(p.codigo).includes(textoBusqueda) ||
+      normalizarTexto(p.categoria).includes(textoBusqueda)
+    );
+  }
+  
+  renderLista(filtrados);
+}
 
-  for (const p of productosCache) {
+// NUEVO: Escuchador de entrada para el buscador del panel de control
+if (elAdminBuscador) {
+  elAdminBuscador.addEventListener("input", aplicarFiltroAdmin);
+}
+
+// MODIFICACIÓN: Ahora recibe la lista de productos (filtrados o completos) por parámetro
+function renderLista(productosARenderizar = productosCache) {
+  listaProductos.innerHTML = "";
+  listaVacia.classList.toggle("hidden", productosARenderizar.length > 0);
+
+  for (const p of productosARenderizar) {
     const row = document.createElement("div");
     row.className = "admin-product-row";
 
@@ -436,12 +460,11 @@ async function eliminarProducto(p) {
   try {
     await deleteDoc(doc(db, "productos", p.id));
     if (p.imagenUrl) {
-      // Intentamos borrar la imagen asociada (si falla, no es grave)
       const extension = p.imagenUrl.split("?")[0].split(".").pop();
       try {
         await deleteObject(ref(storage, `productos/${p.id}.${extension}`));
       } catch (err) {
-        // La imagen puede tener otro nombre o ya no existir; lo ignoramos
+        // Ignorar error si la imagen no existe
       }
     }
   } catch (err) {
@@ -507,15 +530,17 @@ function obtenerPedidosFiltrados() {
 }
 
 [filtroDesde, filtroHasta, filtroCliente].forEach((el) => {
-  el.addEventListener("input", renderPedidos);
+  if (el) el.addEventListener("input", renderPedidos);
 });
 
-btnLimpiarFiltros.addEventListener("click", () => {
-  filtroDesde.value = "";
-  filtroHasta.value = "";
-  filtroCliente.value = "";
-  renderPedidos();
-});
+if (btnLimpiarFiltros) {
+  btnLimpiarFiltros.addEventListener("click", () => {
+    filtroDesde.value = "";
+    filtroHasta.value = "";
+    filtroCliente.value = "";
+    renderPedidos();
+  });
+}
 
 function slugifyPago(formaPago) {
   return formaPago
@@ -534,17 +559,21 @@ function formatearFechaHora(timestamp) {
 }
 
 function renderPedidos() {
+  if (!listaPedidos) return;
   const pedidosFiltrados = obtenerPedidosFiltrados();
 
   listaPedidos.innerHTML = "";
-  pedidosVacio.classList.toggle("hidden", pedidosCache.length > 0);
+  if (pedidosVacio) pedidosVacio.classList.toggle("hidden", pedidosCache.length > 0);
 
   const hayFiltrosActivos =
-    filtroDesde.value || filtroHasta.value || filtroCliente.value.trim();
-  pedidosSinResultados.classList.toggle(
-    "hidden",
-    !(pedidosCache.length > 0 && hayFiltrosActivos && pedidosFiltrados.length === 0)
-  );
+    filtroDesde.value || filtroHasta.value || (filtroCliente && filtroCliente.value.trim());
+  
+  if (pedidosSinResultados) {
+    pedidosSinResultados.classList.toggle(
+      "hidden",
+      !(pedidosCache.length > 0 && hayFiltrosActivos && pedidosFiltrados.length === 0)
+    );
+  }
 
   for (const pedido of pedidosFiltrados) {
     const card = document.createElement("div");
@@ -648,54 +677,56 @@ function escaparCSV(valor) {
   return texto;
 }
 
-btnExportarPedidos.addEventListener("click", () => {
-  const pedidosAExportar = obtenerPedidosFiltrados();
+if (btnExportarPedidos) {
+  btnExportarPedidos.addEventListener("click", () => {
+    const pedidosAExportar = obtenerPedidosFiltrados();
 
-  if (pedidosAExportar.length === 0) {
-    alert("No hay pedidos para exportar con el filtro actual.");
-    return;
-  }
+    if (pedidosAExportar.length === 0) {
+      alert("No hay pedidos para exportar con el filtro actual.");
+      return;
+    }
 
-  const filas = [
-    ["Fecha", "Hora", "Cliente", "WhatsApp", "Forma de pago", "Producto", "Cantidad", "Precio unitario", "Subtotal", "Total del pedido"],
-  ];
+    const filas = [
+      ["Fecha", "Hora", "Cliente", "WhatsApp", "Forma de pago", "Producto", "Cantidad", "Precio unitario", "Subtotal", "Total del pedido"],
+    ];
 
-  for (const pedido of pedidosAExportar) {
-    const fecha = pedido.creadoEn?.toDate ? pedido.creadoEn.toDate() : null;
-    const fechaStr = fecha ? fecha.toLocaleDateString("es-AR") : "";
-    const horaStr = fecha ? fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "";
+    for (const pedido of pedidosAExportar) {
+      const fecha = pedido.creadoEn?.toDate ? pedido.creadoEn.toDate() : null;
+      const fechaStr = fecha ? fecha.toLocaleDateString("es-AR") : "";
+      const horaStr = fecha ? fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "";
 
-    const items = pedido.items && pedido.items.length > 0 ? pedido.items : [{}];
+      const items = pedido.items && pedido.items.length > 0 ? pedido.items : [{}];
 
-    items.forEach((item, idx) => {
-      filas.push([
-        fechaStr,
-        horaStr,
-        pedido.clienteNombre || "",
-        pedido.clienteWhatsapp || "",
-        pedido.formaPago || "",
-        item.nombre || "",
-        item.cantidad ?? "",
-        item.precioUnitario ?? "",
-        item.subtotal ?? "",
-        idx === 0 ? pedido.total ?? "" : "",
-      ]);
-    });
-  }
+      items.forEach((item, idx) => {
+        filas.push([
+          fechaStr,
+          horaStr,
+          pedido.clienteNombre || "",
+          pedido.clienteWhatsapp || "",
+          pedido.formaPago || "",
+          item.nombre || "",
+          item.cantidad ?? "",
+          item.precioUnitario ?? "",
+          item.subtotal ?? "",
+          idx === 0 ? pedido.total ?? "" : "",
+        ]);
+      });
+    }
 
-  const csv = filas.map((fila) => fila.map(escaparCSV).join(",")).join("\n");
-  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
+    const csv = filas.map((fila) => fila.map(escaparCSV).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
 
-  const a = document.createElement("a");
-  a.href = url;
-  const hoy = new Date().toISOString().slice(0, 10);
-  a.download = `pedidos-villa-libertador-${hoy}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-});
+    const a = document.createElement("a");
+    a.href = url;
+    const hoy = new Date().toISOString().slice(0, 10);
+    a.download = `pedidos-villa-libertador-${hoy}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+}
 
 // ============================================================
 // IMPORTAR PRODUCTOS DESDE CSV
@@ -707,13 +738,12 @@ const csvResumen = document.getElementById("csv-resumen");
 
 const modalImportar = document.getElementById("modal-importar");
 const importTableBody = document.getElementById("import-table-body");
-const importarError = document.getElementById("importar-error");
+const insertarError = document.getElementById("importar-error");
 const btnCancelarImportar = document.getElementById("btn-cancelar-importar");
 const btnConfirmarImportar = document.getElementById("btn-confirmar-importar");
 
-let filasImportacion = []; // [{ codigo, nombre, precio, categoria, enStock, existente, accion }]
+let filasImportacion = [];
 
-// ----- Parseo simple de CSV (soporta comillas y comas dentro de comillas) -----
 function parsearCSV(texto) {
   const lineas = texto.split(/\r?\n/).filter((l) => l.trim() !== "");
   if (lineas.length === 0) return [];
@@ -762,65 +792,68 @@ function normalizarBooleano(valor) {
   return !(v === "false" || v === "0" || v === "no" || v === "");
 }
 
-csvInput.addEventListener("change", async (e) => {
-  csvError.textContent = "";
-  const archivo = e.target.files[0];
-  if (!archivo) return;
+if (csvInput) {
+  csvInput.addEventListener("change", async (e) => {
+    if (csvError) csvError.textContent = "";
+    const archivo = e.target.files[0];
+    if (!archivo) return;
 
-  try {
-    const texto = await archivo.text();
-    const filasCrudas = parsearCSV(texto);
+    try {
+      const texto = await archivo.text();
+      const filasCrudas = parsearCSV(texto);
 
-    if (filasCrudas.length === 0) {
-      csvError.textContent = "El archivo está vacío o no se pudo leer.";
-      return;
+      if (filasCrudas.length === 0) {
+        if (csvError) csvError.textContent = "El archivo está vacío o no se pudo leer.";
+        return;
+      }
+
+      const primerFila = filasCrudas[0];
+      const columnasEsperadas = ["codigo", "nombre", "precio", "categoria", "enstock"];
+      const columnasFaltantes = columnasEsperadas.filter((c) => !(c in primerFila));
+      if (columnasFaltantes.length > 0) {
+        if (csvError) csvError.textContent = `Faltan columnas en el archivo: ${columnasFaltantes.join(", ")}.`;
+        return;
+      }
+
+      filasImportacion = filasCrudas.map((fila) => {
+        const codigo = (fila.codigo || "").trim();
+        const existente = codigo
+          ? productosCache.find((p) => (p.codigo || "").trim() === codigo)
+          : null;
+
+        return {
+          codigo,
+          nombre: (fila.nombre || "").trim(),
+          precio: parseFloat(fila.precio) || 0,
+          categoria: (fila.categoria || "").trim(),
+          enStock: normalizarBooleano(fila.enstock),
+          existenteId: existente ? existente.id : null,
+          accion: existente ? "actualizar" : "agregar",
+        };
+      });
+
+      abrirModalImportar();
+      csvInput.value = "";
+    } catch (err) {
+      console.error(err);
+      if (csvError) csvError.textContent = "No se pudo leer el archivo. Verificá que sea un CSV válido.";
     }
-
-    const primerFila = filasCrudas[0];
-    const columnasEsperadas = ["codigo", "nombre", "precio", "categoria", "enstock"];
-    const columnasFaltantes = columnasEsperadas.filter((c) => !(c in primerFila));
-    if (columnasFaltantes.length > 0) {
-      csvError.textContent = `Faltan columnas en el archivo: ${columnasFaltantes.join(", ")}.`;
-      return;
-    }
-
-    filasImportacion = filasCrudas.map((fila) => {
-      const codigo = (fila.codigo || "").trim();
-      const existente = codigo
-        ? productosCache.find((p) => (p.codigo || "").trim() === codigo)
-        : null;
-
-      return {
-        codigo,
-        nombre: (fila.nombre || "").trim(),
-        precio: parseFloat(fila.precio) || 0,
-        categoria: (fila.categoria || "").trim(),
-        enStock: normalizarBooleano(fila.enstock),
-        existenteId: existente ? existente.id : null,
-        accion: existente ? "actualizar" : "agregar",
-      };
-    });
-
-    abrirModalImportar();
-    csvInput.value = "";
-  } catch (err) {
-    console.error(err);
-    csvError.textContent = "No se pudo leer el archivo. Verificá que sea un CSV válido.";
-  }
-});
+  });
+}
 
 function abrirModalImportar() {
-  importarError.textContent = "";
+  if (insertarError) insertarError.textContent = "";
 
   const nuevos = filasImportacion.filter((f) => f.accion === "agregar").length;
   const existentes = filasImportacion.filter((f) => f.existenteId).length;
-  csvResumen.textContent = `${filasImportacion.length} filas leídas: ${nuevos} nuevas, ${existentes} ya existentes.`;
+  if (csvResumen) csvResumen.textContent = `${filasImportacion.length} filas leídas: ${nuevos} nuevas, ${existentes} ya existentes.`;
 
   renderTablaImportacion();
-  modalImportar.classList.remove("hidden");
+  if (modalImportar) modalImportar.classList.remove("hidden");
 }
 
 function renderTablaImportacion() {
+  if (!importTableBody) return;
   importTableBody.innerHTML = "";
 
   filasImportacion.forEach((fila, idx) => {
@@ -888,57 +921,75 @@ function renderTablaImportacion() {
   });
 }
 
-btnCancelarImportar.addEventListener("click", () => {
-  modalImportar.classList.add("hidden");
-  filasImportacion = [];
-});
-
-btnConfirmarImportar.addEventListener("click", async () => {
-  importarError.textContent = "";
-  const aProcesar = filasImportacion.filter((f) => f.accion !== "saltear");
-
-  if (aProcesar.length === 0) {
-    importarError.textContent = "No hay ninguna fila seleccionada para importar.";
-    return;
-  }
-
-  btnConfirmarImportar.disabled = true;
-  btnConfirmarImportar.textContent = "Importando…";
-
-  try {
-    for (const fila of aProcesar) {
-      if (fila.accion === "actualizar" && fila.existenteId) {
-        await updateDoc(doc(db, "productos", fila.existenteId), {
-          codigo: fila.codigo,
-          nombre: fila.nombre,
-          precio: fila.precio,
-          categoria: fila.categoria,
-          enStock: fila.enStock,
-        });
-      } else if (fila.accion === "agregar") {
-        await addDoc(collection(db, "productos"), {
-          codigo: fila.codigo,
-          nombre: fila.nombre,
-          precio: fila.precio,
-          categoria: fila.categoria,
-          orden: 0,
-          enStock: fila.enStock,
-          promo: false,
-          precioPromo: null,
-          promoTexto: "",
-          imagenUrl: "",
-        });
-      }
-    }
-
+if (btnCancelarImportar) {
+  btnCancelarImportar.addEventListener("click", () => {
     modalImportar.classList.add("hidden");
     filasImportacion = [];
-    alert("Importación completada.");
-  } catch (err) {
-    console.error(err);
-    importarError.textContent = "Ocurrió un error al importar. Algunos productos pueden haberse cargado igual.";
-  } finally {
-    btnConfirmarImportar.disabled = false;
-    btnConfirmarImportar.textContent = "Importar seleccionados";
+  });
+}
+
+if (btnConfirmarImportar) {
+  btnConfirmarImportar.addEventListener("click", async () => {
+    if (insertarError) insertarError.textContent = "";
+    const aProcesar = filasImportacion.filter((f) => f.accion !== "saltear");
+
+    if (aProcesar.length === 0) {
+      if (insertarError) insertarError.textContent = "No hay ninguna fila seleccionada para importar.";
+      return;
+    }
+
+    btnConfirmarImportar.disabled = true;
+    btnConfirmarImportar.textContent = "Importando…";
+
+    try {
+      for (const fila of aProcesar) {
+        if (fila.accion === "actualizar" && fila.existenteId) {
+          await updateDoc(doc(db, "productos", fila.existenteId), {
+            codigo: fila.codigo,
+            nombre: fila.nombre,
+            precio: fila.precio,
+            categoria: fila.categoria,
+            enStock: fila.enStock,
+          });
+        } else if (fila.accion === "agregar") {
+          await addDoc(collection(db, "productos"), {
+            codigo: fila.codigo,
+            nombre: fila.nombre,
+            precio: fila.precio,
+            categoria: fila.categoria,
+            orden: 0,
+            enStock: fila.enStock,
+            promo: false,
+            precioPromo: null,
+            promoTexto: "",
+            imagenUrl: "",
+          });
+        }
+      }
+
+      modalImportar.classList.add("hidden");
+      filasImportacion = [];
+      alert("Importación completada.");
+    } catch (err) {
+      console.error(err);
+      if (insertarError) insertarError.textContent = "Ocurrió un error al importar. Algunos productos pueden haberse cargado igual.";
+    } finally {
+      btnConfirmarImportar.disabled = false;
+      btnConfirmarImportar.textContent = "Importar seleccionados";
+    }
+  });
+}
+
+function ajustarStickyNav() {
+  const searchBar = document.querySelector(".search-bar");
+  if (searchBar) {
+    document.documentElement.style.setProperty(
+      "--search-bar-height",
+      `${searchBar.offsetHeight}px`
+    );
   }
-});
+}
+
+window.addEventListener("resize", ajustarStickyNav);
+window.addEventListener("load", ajustarStickyNav);
+ajustarStickyNav();
