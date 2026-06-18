@@ -229,6 +229,21 @@
   <div id="lista-categorias-admin"></div>
 </div>
       <div class="panel">
+        <div class="modal-backdrop hidden" id="modal-renombrar">
+  <div class="modal">
+    
+    <h2>Renombrar categoría</h2>
+    <div class="field">
+      <label for="renombrar-nuevo">Nuevo nombre</label>
+      <input type="text" id="renombrar-nuevo" required />
+    </div>
+    <p class="error-text" id="renombrar-error"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" id="btn-cancelar-renombrar">Cancelar</button>
+      <button type="button" class="btn btn-primary" id="btn-confirmar-renombrar">Renombrar</button>
+    </div>
+  </div>
+</div>
         
         <h2>Productos cargados</h2>
         
