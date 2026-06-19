@@ -93,7 +93,7 @@ function actualizarBadge() {
   if (!elCartBadge) return;
   const total = totalItems();
   if (total > 0) {
-    elCartBadge.textContent = total;
+    elCartBadge.textContent = fmtCantidad(total);
     elCartBadge.classList.remove("hidden");
   } else {
     elCartBadge.classList.add("hidden");
@@ -161,7 +161,7 @@ function mensajeWhatsAppCarrito(nombreCliente, formaPago) {
   const items = Object.values(carrito);
   const lineas = items.map(
     (it) =>
-      `• ${it.nombre} x${it.cantidad} (${fmt.format(it.precioUnitario)} c/u) = ${fmt.format(
+      `• ${it.nombre} x${fmtCantidad(it.cantidad)} (${fmt.format(it.precioUnitario)} c/u) = ${fmt.format(
         it.precioUnitario * it.cantidad
       )}`
   );
