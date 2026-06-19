@@ -16,7 +16,6 @@ const db = getFirestore(app);
 
 const elEstado = document.getElementById("estado");
 const elCatalogo = document.getElementById("catalogo");
-// CORRECCIÓN: Apuntamos al ID 'cat-nav' o la clase de tu select desplegable
 const elCatNav = document.getElementById("cat-nav") || document.querySelector(".cat-selector__dropdown");
 const elUltimaActualizacion = document.getElementById("ultima-actualizacion");
 const elBuscador = document.getElementById("buscador");
@@ -58,6 +57,11 @@ const fmt = new Intl.NumberFormat("es-AR", {
   minimumFractionDigits: 2,
 });
 
+function fmtCantidad(num) {
+  // Muestra "3" en vez de "3.0", pero "3.5" tal cual
+  return Number.isInteger(num) ? String(num) : num.toFixed(1).replace(".", ",");
+}
+
 // ============================================================
 // CARRITO
 // ============================================================
@@ -76,9 +80,7 @@ function cargarCarrito() {
 function guardarCarrito() {
   try {
     localStorage.setItem(CART_KEY, JSON.stringify(carrito));
-  } catch {
-    // si localStorage no está disponible, el carrito sigue funcionando
-  }
+  } catch {}
 }
 
 let carrito = cargarCarrito();
@@ -108,11 +110,13 @@ function agregarAlCarrito(producto, cantidad) {
     carrito[producto.id].cantidad += cantidad;
     carrito[producto.id].precioUnitario = precioUnitario;
     carrito[producto.id].nombre = producto.nombre;
+    carrito[producto.id].fraccionable = !!producto.fraccionable;
   } else {
     carrito[producto.id] = {
       nombre: producto.nombre,
       precioUnitario,
       cantidad,
+      fraccionable: !!producto.fraccionable,
     };
   }
 
@@ -188,7 +192,7 @@ if (elBtnVolverItems) {
   elBtnVolverItems.addEventListener("click", mostrarVistaItems);
 }
 
-// ----- Confirmación del pedido: guarda en Firestore y abre WhatsApp -----
+// ----- Confirmación del pedido -----
 if (elFormDatosCliente) {
   elFormDatosCliente.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -275,7 +279,7 @@ function renderCarrito() {
 
     const stepper = crearStepper(it.cantidad, (nuevaCantidad) => {
       cambiarCantidadCarrito(id, nuevaCantidad);
-    });
+    }, it.fraccionable ? 0.5 : 1);
     info.appendChild(stepper);
 
     row.appendChild(info);
@@ -350,10 +354,11 @@ actualizarBadge();
 // STEPPER DE CANTIDAD (reutilizable)
 // ============================================================
 
-function crearStepper(valorInicial, onChange) {
+function crearStepper(valorInicial, onChange, paso = 1) {
   const wrap = document.createElement("div");
   wrap.className = "qty-stepper";
 
+  const minimo = paso < 1 ? paso : 1;
   let valor = valorInicial;
 
   const btnMenos = document.createElement("button");
@@ -363,7 +368,7 @@ function crearStepper(valorInicial, onChange) {
 
   const valorEl = document.createElement("span");
   valorEl.className = "qty-stepper__value";
-  valorEl.textContent = valor;
+  valorEl.textContent = fmtCantidad(valor);
 
   const btnMas = document.createElement("button");
   btnMas.type = "button";
@@ -371,14 +376,14 @@ function crearStepper(valorInicial, onChange) {
   btnMas.setAttribute("aria-label", "Sumar");
 
   btnMenos.addEventListener("click", () => {
-    valor = Math.max(1, valor - 1);
-    valorEl.textContent = valor;
+    valor = Math.max(minimo, Math.round((valor - paso) * 10) / 10);
+    valorEl.textContent = fmtCantidad(valor);
     if (onChange) onChange(valor);
   });
 
   btnMas.addEventListener("click", () => {
-    valor = valor + 1;
-    valorEl.textContent = valor;
+    valor = Math.round((valor + paso) * 10) / 10;
+    valorEl.textContent = fmtCantidad(valor);
     if (onChange) onChange(valor);
   });
 
@@ -411,42 +416,32 @@ function normalizarTexto(texto) {
 
 let todosLosProductos = [];
 
-// CORRECCIÓN: Renderiza etiquetas <option> dentro del desplegable select
 function renderNavCategorias(productos) {
   if (!elCatNav) return;
   const categorias = [...new Set(productos.map((p) => p.categoria || "Otros"))];
-  
-  // Guardamos el valor seleccionado antes de limpiar por si Firebase se actualiza
   const valorSeleccionadoPrevio = elCatNav.value;
-
   elCatNav.innerHTML = `<option value="">Todas las categorías</option>`;
-  
   for (const cat of categorias) {
     const opt = document.createElement("option");
     opt.value = cat;
     opt.textContent = cat;
     elCatNav.appendChild(opt);
   }
-
-  // Devolvemos la selección previa si existía
   if (valorSeleccionadoPrevio) {
     elCatNav.value = valorSeleccionadoPrevio;
   }
 }
 
-// CORRECCIÓN: Ahora filtra tanto por texto de buscador como por el <select> de categorías
 function aplicarFiltros() {
   const textoBusqueda = normalizarTexto(elBuscador ? elBuscador.value.trim() : "");
   const categoriaSeleccionada = elCatNav ? elCatNav.value : "";
 
   let filtrados = todosLosProductos;
 
-  // Filtro 1: Desplegable Categoría
   if (categoriaSeleccionada) {
     filtrados = filtrados.filter((p) => (p.categoria || "Otros") === categoriaSeleccionada);
   }
 
-  // Filtro 2: Texto de Buscador
   if (textoBusqueda) {
     filtrados = filtrados.filter((p) =>
       normalizarTexto(p.nombre).includes(textoBusqueda)
@@ -460,14 +455,13 @@ if (elBuscador) {
   elBuscador.addEventListener("input", aplicarFiltros);
 }
 
-// CORRECCIÓN: Agregamos el escuchador del evento 'change' para el menú desplegable
 if (elCatNav) {
   elCatNav.addEventListener("change", aplicarFiltros);
 }
 
 function renderCatalogo(productos) {
   if (!elCatalogo) return;
-  
+
   if (!productos || productos.length === 0) {
     if (todosLosProductos.length === 0) {
       elCatalogo.innerHTML = `<p class="state-message">Por el momento no hay productos cargados. Volvé a revisar más tarde.</p>`;
@@ -482,7 +476,6 @@ function renderCatalogo(productos) {
     return;
   }
 
-  // Agrupar por categoría, conservando el orden de aparición
   const categorias = new Map();
   for (const p of productos) {
     const cat = p.categoria || "Otros";
@@ -490,7 +483,6 @@ function renderCatalogo(productos) {
     categorias.get(cat).push(p);
   }
 
-  // Secciones
   elCatalogo.innerHTML = "";
   for (const [cat, items] of categorias.entries()) {
     const section = document.createElement("section");
@@ -514,7 +506,11 @@ function renderCatalogo(productos) {
   }
 }
 
+// Render de una card de producto. Si p.fraccionable, permite pedir en pasos de 0.5
 function renderCard(p) {
+  const precioMostrar =
+    p.promo && p.precioPromo != null ? p.precioPromo : p.precio || 0;
+
   const card = document.createElement("article");
   card.className = "product-card";
   if (p.enStock === false) card.classList.add("product-card--soldout");
@@ -536,6 +532,7 @@ function renderCard(p) {
     ph.appendChild(phText);
     imgWrap.appendChild(ph);
   }
+
   if (p.promo && p.enStock !== false) {
     const stamp = document.createElement("span");
     stamp.className = "promo-stamp";
@@ -564,17 +561,13 @@ function renderCard(p) {
     oldPrice.className = "product-card__price--old";
     oldPrice.textContent = fmt.format(p.precio);
     priceRow.appendChild(oldPrice);
-
-    const newPrice = document.createElement("span");
-    newPrice.className = "product-card__price";
-    newPrice.textContent = fmt.format(p.precioPromo);
-    priceRow.appendChild(newPrice);
-  } else {
-    const price = document.createElement("span");
-    price.className = "product-card__price";
-    price.textContent = fmt.format(p.precio || 0);
-    priceRow.appendChild(price);
   }
+
+  const priceEl = document.createElement("span");
+  priceEl.className = "product-card__price";
+  priceEl.textContent = fmt.format(precioMostrar);
+  priceRow.appendChild(priceEl);
+
   metaWrap.appendChild(priceRow);
   body.appendChild(metaWrap);
 
@@ -583,6 +576,13 @@ function renderCard(p) {
     promoText.className = "product-card__promo-text";
     promoText.textContent = p.promoTexto;
     metaWrap.appendChild(promoText);
+  }
+
+  if (p.fraccionable && p.enStock !== false) {
+    const aviso = document.createElement("p");
+    aviso.className = "product-card__fraccionable-text";
+    aviso.textContent = "Se puede pedir por mitad (ej: 2 y media)";
+    metaWrap.appendChild(aviso);
   }
 
   if (p.enStock === false) {
@@ -601,7 +601,8 @@ function renderCard(p) {
     const controls = document.createElement("div");
     controls.className = "product-card__controls";
 
-    const stepper = crearStepper(1, null);
+    const paso = p.fraccionable ? 0.5 : 1;
+    const stepper = crearStepper(1, null, paso);
     controls.appendChild(stepper);
 
     const btnAgregar = document.createElement("button");
@@ -609,10 +610,10 @@ function renderCard(p) {
     btnAgregar.className = "btn-add";
     btnAgregar.textContent = "Agregar";
     btnAgregar.addEventListener("click", () => {
-      const cantidad = parseInt(
-        stepper.querySelector(".qty-stepper__value").textContent,
-        10
-      );
+      const textoValor = stepper
+        .querySelector(".qty-stepper__value")
+        .textContent.replace(",", ".");
+      const cantidad = parseFloat(textoValor);
       agregarAlCarrito(p, cantidad);
 
       const original = btnAgregar.textContent;
@@ -645,7 +646,7 @@ onSnapshot(
     todosLosProductos = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     if (elEstado) elEstado.classList.add("hidden");
     renderNavCategorias(todosLosProductos);
-    aplicarFiltros(); // Esto ejecuta la carga inicial apenas Firebase responde
+    aplicarFiltros();
   },
   (error) => {
     console.error(error);
