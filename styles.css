@@ -1423,3 +1423,10 @@ main {
     margin: 0 !important;
   }
 }
+
+.banner img {
+    width: 100%;
+    height: auto;
+    max-height: 220px;
+    object-fit: cover;
+}
