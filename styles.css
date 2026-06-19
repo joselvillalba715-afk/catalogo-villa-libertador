@@ -1424,9 +1424,14 @@ main {
   }
 }
 
-.banner img {
+.main-banner {
     width: 100%;
-    height: auto;
-    max-height: 220px;
+    overflow: hidden;
+}
+
+.banner-img {
+    width: 100%;
+    height: 220px;
     object-fit: cover;
+    display: block;
 }
