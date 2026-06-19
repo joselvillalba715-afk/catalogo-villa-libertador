@@ -181,6 +181,7 @@ adminTabs.forEach((btn) => {
     }
   });
 });
+
 nPromoCheckbox.addEventListener("change", () => {
   nPromoFields.classList.toggle("hidden", !nPromoCheckbox.checked);
 });
@@ -216,6 +217,7 @@ formNuevo.addEventListener("submit", async (e) => {
   const orden = parseInt(document.getElementById("n-orden").value, 10) || 0;
   const enStock = document.getElementById("n-stock").checked;
   const promo = document.getElementById("n-promo").checked;
+  const fraccionable = document.getElementById("n-fraccionable")?.checked || false;
   const precioPromo = document.getElementById("n-precio-promo").value
     ? parseFloat(document.getElementById("n-precio-promo").value)
     : null;
@@ -231,6 +233,7 @@ formNuevo.addEventListener("submit", async (e) => {
       orden,
       enStock,
       promo,
+      fraccionable,
       precioPromo: promo ? precioPromo : null,
       promoTexto: promo ? promoTexto : "",
       imagenUrl: "",
@@ -268,17 +271,14 @@ function actualizarListaCategorias() {
 
 function aplicarFiltroAdmin() {
   const textoBusqueda = elAdminBuscador ? normalizarTexto(elAdminBuscador.value.trim()) : "";
-  
   let filtrados = productosCache;
-  
   if (textoBusqueda) {
     filtrados = productosCache.filter((p) =>
-      normalizarTexto(p.nombre).includes(textoBusqueda) || 
+      normalizarTexto(p.nombre).includes(textoBusqueda) ||
       normalizarTexto(p.codigo).includes(textoBusqueda) ||
       normalizarTexto(p.categoria).includes(textoBusqueda)
     );
   }
-  
   renderLista(filtrados);
 }
 
@@ -324,6 +324,12 @@ function renderLista(productosARenderizar = productosCache) {
     info.appendChild(meta);
 
     const tags = document.createElement("p");
+    if (p.fraccionable) {
+      const t = document.createElement("span");
+      t.className = "tag tag--promo";
+      t.textContent = "½ Media";
+      tags.appendChild(t);
+    }
     if (p.promo) {
       const t = document.createElement("span");
       t.className = "tag tag--promo";
@@ -381,6 +387,9 @@ function abrirModalEditar(p) {
   document.getElementById("e-promo-texto").value = p.promoTexto || "";
   document.getElementById("e-imagen").value = "";
 
+  const eFraccionable = document.getElementById("e-fraccionable");
+  if (eFraccionable) eFraccionable.checked = !!p.fraccionable;
+
   ePromoFields.classList.toggle("hidden", !p.promo);
 
   modalEditar.classList.remove("hidden");
@@ -397,6 +406,7 @@ formEditar.addEventListener("submit", async (e) => {
 
   const id = document.getElementById("e-id").value;
   const promo = document.getElementById("e-promo").checked;
+  const fraccionable = document.getElementById("e-fraccionable")?.checked || false;
 
   const datos = {
     nombre: document.getElementById("e-nombre").value.trim(),
@@ -406,6 +416,7 @@ formEditar.addEventListener("submit", async (e) => {
     orden: parseInt(document.getElementById("e-orden").value, 10) || 0,
     enStock: document.getElementById("e-stock").checked,
     promo,
+    fraccionable,
     precioPromo: promo
       ? parseFloat(document.getElementById("e-precio-promo").value) || null
       : null,
@@ -438,9 +449,7 @@ async function eliminarProducto(p) {
       const extension = p.imagenUrl.split("?")[0].split(".").pop();
       try {
         await deleteObject(ref(storage, `productos/${p.id}.${extension}`));
-      } catch (err) {
-        // Ignorar error si no existe la imagen
-      }
+      } catch (err) {}
     }
   } catch (err) {
     console.error(err);
@@ -475,15 +484,12 @@ function obtenerPedidosFiltrados() {
 
   return pedidosCache.filter((pedido) => {
     const fecha = pedido.creadoEn?.toDate ? pedido.creadoEn.toDate() : null;
-
     if (desde && (!fecha || fecha < desde)) return false;
     if (hasta && (!fecha || fecha > hasta)) return false;
-
     if (textoCliente) {
       const nombreNormalizado = normalizarTexto(pedido.clienteNombre);
       if (!nombreNormalizado.includes(textoCliente)) return false;
     }
-
     return true;
   });
 }
@@ -526,7 +532,7 @@ function renderPedidos() {
 
   const hayFiltrosActivos =
     filtroDesde.value || filtroHasta.value || (filtroCliente && filtroCliente.value.trim());
-  
+
   if (pedidosSinResultados) {
     pedidosSinResultados.classList.toggle(
       "hidden",
@@ -813,7 +819,7 @@ function renderTablaImportacion() {
   if (!importTableBody) return;
   importTableBody.innerHTML = "";
 
-  filasImportacion.forEach((fila, idx) => {
+  filasImportacion.forEach((fila) => {
     const tr = document.createElement("tr");
     tr.className = fila.existenteId ? "import-row--existente" : "import-row--nuevo";
 
@@ -916,6 +922,7 @@ if (btnConfirmarImportar) {
             categoria: fila.categoria,
             orden: 0,
             enStock: fila.enStock,
+            fraccionable: false,
             promo: false,
             precioPromo: null,
             promoTexto: "",
@@ -975,7 +982,7 @@ onAuthStateChanged(auth, (user) => {
         productosCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
         aplicarFiltroAdmin();
         actualizarListaCategorias();
-        renderCategoriasAdmin(); // ← LÍNEA AGREGADA
+        renderCategoriasAdmin(); // ← gestión de categorías
       }, (error) => {
         console.error("Error en productos:", error);
       });
