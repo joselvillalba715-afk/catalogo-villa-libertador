@@ -36,6 +36,7 @@ html,
 body {
   margin: 0;
   padding: 0;
+  height: 100%;
 }
 
 body {
@@ -836,6 +837,8 @@ main {
 .cart-backdrop {
   position: fixed;
   inset: 0;
+  height: 100vh;
+  height: 100dvh;
   background: rgba(32, 35, 31, 0.45);
   z-index: 40;
   display: flex;
@@ -850,8 +853,10 @@ main {
   height: 100dvh;
   max-height: 100vh;
   max-height: 100dvh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
 }
 
@@ -875,7 +880,9 @@ main {
 
 .cart-drawer__body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 16px 20px;
   display: flex;
   flex-direction: column;
