@@ -869,6 +869,14 @@ main {
   flex-shrink: 0;
 }
 
+#cart-view-items,
+#cart-view-datos {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .cart-drawer__header h2 {
   font-family: var(--font-display);
   text-transform: uppercase;
@@ -882,7 +890,6 @@ main {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
   padding: 16px 20px;
   display: flex;
   flex-direction: column;
