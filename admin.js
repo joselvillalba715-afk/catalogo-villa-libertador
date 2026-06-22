@@ -921,6 +921,10 @@ formNuevoCupon?.addEventListener("submit", async (e) => {
   const categoria = document.getElementById("cu-categoria").value.trim();
   const desde = document.getElementById("cu-desde").value;
   const hasta = document.getElementById("cu-hasta").value;
+  const minimoRaw = document.getElementById("cu-minimo").value;
+  const topeRaw = document.getElementById("cu-tope").value;
+  const minimo = minimoRaw !== "" ? parseFloat(minimoRaw) : null;
+  const tope = topeRaw !== "" ? parseFloat(topeRaw) : null;
   const activo = document.getElementById("cu-activo").checked;
 
   if (!codigo) { cuponError.textContent = "El código no puede estar vacío."; return; }
@@ -929,7 +933,7 @@ formNuevoCupon?.addEventListener("submit", async (e) => {
   if (cuponesCache.some((c) => c.codigo === codigo)) { cuponError.textContent = "Ya existe un cupón con ese código."; return; }
 
   try {
-    await addDoc(collection(db, "cupones"), { codigo, tipo, valor, alcance, categoria: alcance === "categoria" ? categoria : "", desde, hasta, activo });
+    await addDoc(collection(db, "cupones"), { codigo, tipo, valor, alcance, categoria: alcance === "categoria" ? categoria : "", desde, hasta, minimo, tope, activo });
     formNuevoCupon.reset();
     actualizarCampoCategoria(cuAlcance, cuCategoriaField);
     actualizarLabelValor(cuTipo, cuValorLabel);
@@ -958,9 +962,12 @@ function renderListaCupones() {
     info.appendChild(name);
     const valorTexto = c.tipo === "porcentaje" ? `${c.valor}%` : fmt.format(c.valor);
     const alcanceTexto = c.alcance === "categoria" ? `Solo "${c.categoria}"` : "Todo el pedido";
+    const extras = [];
+    if (c.minimo != null) extras.push(`mín. ${fmt.format(c.minimo)}`);
+    if (c.tope != null) extras.push(`tope ${fmt.format(c.tope)}`);
     const meta = document.createElement("p");
     meta.className = "admin-product-row__meta";
-    meta.textContent = `${valorTexto} · ${alcanceTexto} · ${formatearFechaCupon(c.desde)} al ${formatearFechaCupon(c.hasta)}`;
+    meta.textContent = `${valorTexto} · ${alcanceTexto} · ${formatearFechaCupon(c.desde)} al ${formatearFechaCupon(c.hasta)}${extras.length ? " · " + extras.join(", ") : ""}`;
     info.appendChild(meta);
     const tags = document.createElement("p");
     const tagEstado = document.createElement("span");
@@ -994,6 +1001,8 @@ function abrirModalEditarCupon(c) {
   document.getElementById("ec-categoria").value = c.categoria || "";
   document.getElementById("ec-desde").value = c.desde || "";
   document.getElementById("ec-hasta").value = c.hasta || "";
+  document.getElementById("ec-minimo").value = c.minimo != null ? c.minimo : "";
+  document.getElementById("ec-tope").value = c.tope != null ? c.tope : "";
   document.getElementById("ec-activo").checked = !!c.activo;
   actualizarCampoCategoria(ecAlcance, ecCategoriaField);
   actualizarLabelValor(ecTipo, ecValorLabel);
@@ -1011,11 +1020,16 @@ formEditarCupon?.addEventListener("submit", async (e) => {
   const categoria = document.getElementById("ec-categoria").value.trim();
   const desde = document.getElementById("ec-desde").value;
   const hasta = document.getElementById("ec-hasta").value;
+  const minimoRawE = document.getElementById("ec-minimo").value;
+  const topeRawE = document.getElementById("ec-tope").value;
+  const minimo = minimoRawE !== "" ? parseFloat(minimoRawE) : null;
+  const tope = topeRawE !== "" ? parseFloat(topeRawE) : null;
+
   if (alcance === "categoria" && !categoria) { editarCuponError.textContent = "Especificá la categoría."; return; }
   if (desde && hasta && desde > hasta) { editarCuponError.textContent = "La fecha 'desde' no puede ser posterior a 'hasta'."; return; }
   if (cuponesCache.some((c) => c.codigo === codigo && c.id !== id)) { editarCuponError.textContent = "Ya existe otro cupón con ese código."; return; }
   try {
-    await updateDoc(doc(db, "cupones", id), { codigo, tipo: document.getElementById("ec-tipo").value, valor: parseFloat(document.getElementById("ec-valor").value), alcance, categoria: alcance === "categoria" ? categoria : "", desde, hasta, activo: document.getElementById("ec-activo").checked });
+    await updateDoc(doc(db, "cupones", id), { codigo, tipo: document.getElementById("ec-tipo").value, valor: parseFloat(document.getElementById("ec-valor").value), alcance, categoria: alcance === "categoria" ? categoria : "", desde, hasta, minimo, tope, activo: document.getElementById("ec-activo").checked });
     modalEditarCupon.classList.add("hidden");
   } catch (err) { console.error(err); editarCuponError.textContent = "No se pudieron guardar los cambios."; }
 });
