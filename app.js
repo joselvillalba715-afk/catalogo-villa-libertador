@@ -553,5 +553,3 @@ onSnapshot(productosQuery, (snapshot) => {
   console.error(error);
   if (elEstado) { elEstado.textContent = "No se pudo cargar el catálogo. Revisá la configuración de Firebase."; elEstado.classList.remove("hidden"); }
 });
-
-ajustarStickyNav();
