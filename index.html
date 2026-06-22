@@ -61,6 +61,26 @@
       <div id="cart-view-items">
         <div class="cart-drawer__body" id="cart-items">
         </div>
+
+        <!-- Cupón de descuento -->
+        <div class="cart-coupon hidden" id="cart-coupon-block">
+          <div class="cart-coupon__row">
+            <input
+              type="text"
+              id="cupon-input"
+              placeholder="Código de descuento"
+              autocomplete="off"
+              style="text-transform: uppercase;"
+            />
+            <button type="button" class="btn btn-secondary" id="btn-aplicar-cupon">Aplicar</button>
+          </div>
+          <p class="error-text" id="cupon-mensaje"></p>
+          <div class="cart-coupon__aplicado hidden" id="cupon-aplicado-info">
+            <span id="cupon-aplicado-texto"></span>
+            <button type="button" id="btn-quitar-cupon">Quitar</button>
+          </div>
+        </div>
+
         <div class="cart-drawer__footer" id="cart-footer">
         </div>
       </div>
