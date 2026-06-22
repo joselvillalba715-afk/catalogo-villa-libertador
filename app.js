@@ -451,20 +451,58 @@ function renderCard(p) {
     const btn = document.createElement("button"); btn.type = "button"; btn.className = "btn-order btn-order--disabled"; btn.textContent = "No disponible"; btn.disabled = true; body.appendChild(btn);
   } else {
     const controls = document.createElement("div"); controls.className = "product-card__controls";
-    const stepper = crearStepper(1, null, p.fraccionable ? 0.5 : 1);
-    controls.appendChild(stepper);
-    const btnAgregar = document.createElement("button"); btnAgregar.type = "button"; btnAgregar.className = "btn-add"; btnAgregar.textContent = "Agregar";
-    btnAgregar.addEventListener("click", () => {
-      const cantidad = parseFloat(stepper.querySelector(".qty-stepper__value").textContent.replace(",", "."));
-      agregarAlCarrito(p, cantidad);
-      const original = btnAgregar.textContent;
-      btnAgregar.textContent = "✓ Agregado"; btnAgregar.classList.add("btn-add--ok");
-      setTimeout(() => { btnAgregar.textContent = original; btnAgregar.classList.remove("btn-add--ok"); }, 900);
-    });
-    controls.appendChild(btnAgregar); body.appendChild(controls);
+    actualizarControlesCard(controls, p);
+    body.appendChild(controls);
   }
   card.appendChild(body);
   return card;
+}
+
+// Actualiza los controles de una tarjeta según si el producto ya está o no en el carrito
+function actualizarControlesCard(controls, p) {
+  controls.innerHTML = "";
+  const enCarrito = carrito[p.id];
+
+  if (enCarrito) {
+    const label = document.createElement("span");
+    label.className = "btn-en-carrito-label";
+    label.textContent = "✓ En carrito";
+    controls.appendChild(label);
+
+    const stepperMod = crearStepper(enCarrito.cantidad, (nuevaCantidad) => {
+      if (nuevaCantidad <= 0) {
+        quitarDelCarrito(p.id);
+      } else {
+        cambiarCantidadCarrito(p.id, nuevaCantidad);
+      }
+      actualizarControlesCard(controls, p);
+    }, p.fraccionable ? 0.5 : 1);
+    controls.appendChild(stepperMod);
+
+    const btnQuitar = document.createElement("button");
+    btnQuitar.type = "button";
+    btnQuitar.className = "btn-add btn-add--quitar";
+    btnQuitar.textContent = "Quitar";
+    btnQuitar.addEventListener("click", () => {
+      quitarDelCarrito(p.id);
+      actualizarControlesCard(controls, p);
+    });
+    controls.appendChild(btnQuitar);
+  } else {
+    const stepper = crearStepper(1, null, p.fraccionable ? 0.5 : 1);
+    controls.appendChild(stepper);
+
+    const btnAgregar = document.createElement("button");
+    btnAgregar.type = "button";
+    btnAgregar.className = "btn-add";
+    btnAgregar.textContent = "Agregar";
+    btnAgregar.addEventListener("click", () => {
+      const cantidad = parseFloat(stepper.querySelector(".qty-stepper__value").textContent.replace(",", "."));
+      agregarAlCarrito(p, cantidad);
+      actualizarControlesCard(controls, p);
+    });
+    controls.appendChild(btnAgregar);
+  }
 }
 
 const productosQuery = query(collection(db, "productos"), orderBy("categoria"), orderBy("orden"));
