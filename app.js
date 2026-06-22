@@ -296,6 +296,12 @@ if (elFormDatosCliente) {
     }
     const items = Object.entries(carrito).map(([id, it]) => ({ productoId: id, nombre: it.nombre, cantidad: it.cantidad, precioUnitario: it.precioUnitario, subtotal: it.precioUnitario * it.cantidad }));
     const descuento = calcularDescuento();
+
+    // Abrimos la ventana ANTES del await para que Safari no la bloquee como popup
+    const linkWA = mensajeWhatsAppCarrito(nombreCliente, formaPago);
+    const ventanaWA = window.open("", "_blank");
+    if (ventanaWA) ventanaWA.location.href = linkWA;
+
     elBtnConfirmarPedido.disabled = true; elBtnConfirmarPedido.textContent = "Enviando…";
     try {
       await addDoc(collection(db, "pedidos"), {
@@ -303,7 +309,10 @@ if (elFormDatosCliente) {
         subtotal: totalCarrito(), cuponCodigo: cuponAplicado ? cuponAplicado.codigo : null,
         descuento, total: totalConDescuento(), creadoEn: serverTimestamp(),
       });
-      window.open(mensajeWhatsAppCarrito(nombreCliente, formaPago), "_blank", "noopener");
+      // Si el navegador bloqueó la ventana, usamos location.href como fallback
+      if (!ventanaWA || ventanaWA.closed) {
+        window.location.href = linkWA;
+      }
       vaciarCarrito(); elFormDatosCliente.reset(); elCartBackdrop.classList.add("hidden"); mostrarVistaItems();
     } catch (err) {
       console.error(err); elDatosClienteError.textContent = "No se pudo registrar el pedido. Probá de nuevo en unos segundos.";
