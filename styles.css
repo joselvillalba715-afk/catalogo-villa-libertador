@@ -447,3 +447,13 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 20px 100px; }
 .btn-add--quitar:hover {
   background: #f5d5d0 !important;
 }
+
+.btn-add--modificar {
+  background: var(--primary-light) !important;
+  font-size: 0.75rem !important;
+  padding: 5px 8px !important;
+}
+
+.btn-add--modificar:hover {
+  background: var(--primary) !important;
+}
