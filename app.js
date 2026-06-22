@@ -469,15 +469,30 @@ function actualizarControlesCard(controls, p) {
     label.textContent = "✓ En carrito";
     controls.appendChild(label);
 
-    const stepperMod = crearStepper(enCarrito.cantidad, (nuevaCantidad) => {
+    // Stepper arranca en la cantidad actual, pero NO modifica el carrito hasta que se toca Modificar
+    const stepperMod = crearStepper(enCarrito.cantidad, null, p.fraccionable ? 0.5 : 1);
+    controls.appendChild(stepperMod);
+
+    const btnModificar = document.createElement("button");
+    btnModificar.type = "button";
+    btnModificar.className = "btn-add btn-add--modificar";
+    btnModificar.textContent = "Modificar";
+    btnModificar.addEventListener("click", () => {
+      const nuevaCantidad = parseFloat(
+        stepperMod.querySelector(".qty-stepper__value").textContent.replace(",", ".")
+      );
       if (nuevaCantidad <= 0) {
         quitarDelCarrito(p.id);
       } else {
         cambiarCantidadCarrito(p.id, nuevaCantidad);
       }
       actualizarControlesCard(controls, p);
-    }, p.fraccionable ? 0.5 : 1);
-    controls.appendChild(stepperMod);
+
+      // Feedback visual breve
+      btnModificar.textContent = "✓ Listo";
+      setTimeout(() => actualizarControlesCard(controls, p), 800);
+    });
+    controls.appendChild(btnModificar);
 
     const btnQuitar = document.createElement("button");
     btnQuitar.type = "button";
