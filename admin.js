@@ -118,7 +118,7 @@ resetForm.addEventListener("submit", async (e) => {
   }
 });
 
-// ---------- Crear cuenta (solo emails autorizados) ----------
+// ---------- Crear cuenta ----------
 linkCrearCuenta.addEventListener("click", (e) => {
   e.preventDefault();
   registroError.textContent = "";
@@ -136,20 +136,16 @@ linkVolverLoginRegistro.addEventListener("click", (e) => {
 registroForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   registroError.textContent = "";
-
   const email = document.getElementById("registro-email").value.trim().toLowerCase();
   const password = document.getElementById("registro-password").value;
-
   try {
     const refAutorizado = doc(db, "emailsAutorizados", email);
     const snapAutorizado = await getDoc(refAutorizado);
-
     if (!snapAutorizado.exists()) {
       registroError.textContent =
         "Este email no está autorizado para crear una cuenta. Pedile al administrador que lo agregue.";
       return;
     }
-
     await createUserWithEmailAndPassword(auth, email, password);
   } catch (err) {
     console.error(err);
@@ -167,18 +163,18 @@ registroForm.addEventListener("submit", async (e) => {
 const adminTabs = document.querySelectorAll(".admin-tab");
 const tabCatalogo = document.getElementById("tab-catalogo");
 const tabPedidos = document.getElementById("tab-pedidos");
+const tabCupones = document.getElementById("tab-cupones");
+
+const tabsPorNombre = { catalogo: tabCatalogo, pedidos: tabPedidos, cupones: tabCupones };
 
 adminTabs.forEach((btn) => {
   btn.addEventListener("click", () => {
     adminTabs.forEach((b) => b.classList.remove("admin-tab--active"));
     btn.classList.add("admin-tab--active");
-    if (btn.dataset.tab === "catalogo") {
-      tabCatalogo.classList.remove("hidden");
-      tabPedidos.classList.add("hidden");
-    } else {
-      tabCatalogo.classList.add("hidden");
-      tabPedidos.classList.remove("hidden");
-    }
+    Object.entries(tabsPorNombre).forEach(([nombre, el]) => {
+      if (!el) return;
+      el.classList.toggle("hidden", nombre !== btn.dataset.tab);
+    });
   });
 });
 
@@ -209,7 +205,6 @@ async function subirImagen(file, productoId) {
 formNuevo.addEventListener("submit", async (e) => {
   e.preventDefault();
   nuevoError.textContent = "";
-
   const nombre = document.getElementById("n-nombre").value.trim();
   const codigo = document.getElementById("n-codigo").value.trim();
   const categoria = document.getElementById("n-categoria").value.trim();
@@ -223,27 +218,17 @@ formNuevo.addEventListener("submit", async (e) => {
     : null;
   const promoTexto = document.getElementById("n-promo-texto").value.trim();
   const archivo = document.getElementById("n-imagen").files[0];
-
   try {
     const docRef = await addDoc(collection(db, "productos"), {
-      nombre,
-      codigo,
-      categoria,
-      precio,
-      orden,
-      enStock,
-      promo,
-      fraccionable,
+      nombre, codigo, categoria, precio, orden, enStock, promo, fraccionable,
       precioPromo: promo ? precioPromo : null,
       promoTexto: promo ? promoTexto : "",
       imagenUrl: "",
     });
-
     if (archivo) {
       const url = await subirImagen(archivo, docRef.id);
       await updateDoc(doc(db, "productos", docRef.id), { imagenUrl: url });
     }
-
     formNuevo.reset();
     nPromoFields.classList.add("hidden");
   } catch (err) {
@@ -252,9 +237,13 @@ formNuevo.addEventListener("submit", async (e) => {
   }
 });
 
-// ---------- Variables de Datos y Cache ----------
+// ---------- Cache y buscador ----------
 let productosCache = [];
 let pedidosCache = [];
+
+function normalizarTexto(texto) {
+  return (texto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
 
 function actualizarListaCategorias() {
   const datalist = document.getElementById("lista-categorias");
@@ -267,6 +256,7 @@ function actualizarListaCategorias() {
     option.value = cat;
     datalist.appendChild(option);
   }
+  actualizarDatalistCategoriasCupon();
 }
 
 function aplicarFiltroAdmin() {
@@ -317,9 +307,7 @@ function renderLista(productosARenderizar = productosCache) {
     const meta = document.createElement("p");
     meta.className = "admin-product-row__meta";
     let precioTexto = fmt.format(p.precio || 0);
-    if (p.promo && p.precioPromo != null) {
-      precioTexto += ` → ${fmt.format(p.precioPromo)}`;
-    }
+    if (p.promo && p.precioPromo != null) precioTexto += ` → ${fmt.format(p.precioPromo)}`;
     meta.textContent = `${p.categoria} · ${precioTexto}`;
     info.appendChild(meta);
 
@@ -343,7 +331,6 @@ function renderLista(productosARenderizar = productosCache) {
       tags.appendChild(t);
     }
     if (tags.children.length > 0) info.appendChild(tags);
-
     row.appendChild(info);
 
     const actions = document.createElement("div");
@@ -374,7 +361,6 @@ let productoEnEdicion = null;
 function abrirModalEditar(p) {
   productoEnEdicion = p;
   editarError.textContent = "";
-
   document.getElementById("e-id").value = p.id;
   document.getElementById("e-nombre").value = p.nombre || "";
   document.getElementById("e-codigo").value = p.codigo || "";
@@ -386,12 +372,9 @@ function abrirModalEditar(p) {
   document.getElementById("e-precio-promo").value = p.precioPromo ?? "";
   document.getElementById("e-promo-texto").value = p.promoTexto || "";
   document.getElementById("e-imagen").value = "";
-
   const eFraccionable = document.getElementById("e-fraccionable");
   if (eFraccionable) eFraccionable.checked = !!p.fraccionable;
-
   ePromoFields.classList.toggle("hidden", !p.promo);
-
   modalEditar.classList.remove("hidden");
 }
 
@@ -403,11 +386,9 @@ btnCancelarEditar.addEventListener("click", () => {
 formEditar.addEventListener("submit", async (e) => {
   e.preventDefault();
   editarError.textContent = "";
-
   const id = document.getElementById("e-id").value;
   const promo = document.getElementById("e-promo").checked;
   const fraccionable = document.getElementById("e-fraccionable")?.checked || false;
-
   const datos = {
     nombre: document.getElementById("e-nombre").value.trim(),
     codigo: document.getElementById("e-codigo").value.trim(),
@@ -415,20 +396,13 @@ formEditar.addEventListener("submit", async (e) => {
     precio: parseFloat(document.getElementById("e-precio").value),
     orden: parseInt(document.getElementById("e-orden").value, 10) || 0,
     enStock: document.getElementById("e-stock").checked,
-    promo,
-    fraccionable,
-    precioPromo: promo
-      ? parseFloat(document.getElementById("e-precio-promo").value) || null
-      : null,
+    promo, fraccionable,
+    precioPromo: promo ? parseFloat(document.getElementById("e-precio-promo").value) || null : null,
     promoTexto: promo ? document.getElementById("e-promo-texto").value.trim() : "",
   };
-
   try {
     const archivo = document.getElementById("e-imagen").files[0];
-    if (archivo) {
-      datos.imagenUrl = await subirImagen(archivo, id);
-    }
-
+    if (archivo) datos.imagenUrl = await subirImagen(archivo, id);
     await updateDoc(doc(db, "productos", id), datos);
     modalEditar.classList.add("hidden");
     productoEnEdicion = null;
@@ -442,14 +416,11 @@ formEditar.addEventListener("submit", async (e) => {
 async function eliminarProducto(p) {
   const ok = confirm(`¿Eliminar "${p.nombre}" del catálogo?`);
   if (!ok) return;
-
   try {
     await deleteDoc(doc(db, "productos", p.id));
     if (p.imagenUrl) {
       const extension = p.imagenUrl.split("?")[0].split(".").pop();
-      try {
-        await deleteObject(ref(storage, `productos/${p.id}.${extension}`));
-      } catch (err) {}
+      try { await deleteObject(ref(storage, `productos/${p.id}.${extension}`)); } catch (err) {}
     }
   } catch (err) {
     console.error(err);
@@ -464,31 +435,21 @@ const listaPedidos = document.getElementById("lista-pedidos");
 const pedidosVacio = document.getElementById("pedidos-vacio");
 const pedidosSinResultados = document.getElementById("pedidos-sin-resultados");
 const btnExportarPedidos = document.getElementById("btn-exportar-pedidos");
-
 const filtroDesde = document.getElementById("filtro-desde");
 const filtroHasta = document.getElementById("filtro-hasta");
 const filtroCliente = document.getElementById("filtro-cliente");
 const btnLimpiarFiltros = document.getElementById("btn-limpiar-filtros");
 
-function normalizarTexto(texto) {
-  return (texto || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
 function obtenerPedidosFiltrados() {
   const desde = filtroDesde.value ? new Date(filtroDesde.value + "T00:00:00") : null;
   const hasta = filtroHasta.value ? new Date(filtroHasta.value + "T23:59:59") : null;
   const textoCliente = normalizarTexto(filtroCliente.value.trim());
-
   return pedidosCache.filter((pedido) => {
     const fecha = pedido.creadoEn?.toDate ? pedido.creadoEn.toDate() : null;
     if (desde && (!fecha || fecha < desde)) return false;
     if (hasta && (!fecha || fecha > hasta)) return false;
     if (textoCliente) {
-      const nombreNormalizado = normalizarTexto(pedido.clienteNombre);
-      if (!nombreNormalizado.includes(textoCliente)) return false;
+      if (!normalizarTexto(pedido.clienteNombre).includes(textoCliente)) return false;
     }
     return true;
   });
@@ -508,81 +469,58 @@ if (btnLimpiarFiltros) {
 }
 
 function slugifyPago(formaPago) {
-  return formaPago
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-");
+  return formaPago.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-");
 }
 
 function formatearFechaHora(timestamp) {
   if (!timestamp || !timestamp.toDate) return "—";
   const fecha = timestamp.toDate();
-  const fechaStr = fecha.toLocaleDateString("es-AR");
-  const horaStr = fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-  return `${fechaStr} · ${horaStr}`;
+  return `${fecha.toLocaleDateString("es-AR")} · ${fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 function renderPedidos() {
   if (!listaPedidos) return;
   const pedidosFiltrados = obtenerPedidosFiltrados();
-
   listaPedidos.innerHTML = "";
   if (pedidosVacio) pedidosVacio.classList.toggle("hidden", pedidosCache.length > 0);
-
-  const hayFiltrosActivos =
-    filtroDesde.value || filtroHasta.value || (filtroCliente && filtroCliente.value.trim());
-
+  const hayFiltrosActivos = filtroDesde.value || filtroHasta.value || (filtroCliente && filtroCliente.value.trim());
   if (pedidosSinResultados) {
-    pedidosSinResultados.classList.toggle(
-      "hidden",
-      !(pedidosCache.length > 0 && hayFiltrosActivos && pedidosFiltrados.length === 0)
-    );
+    pedidosSinResultados.classList.toggle("hidden", !(pedidosCache.length > 0 && hayFiltrosActivos && pedidosFiltrados.length === 0));
   }
 
   for (const pedido of pedidosFiltrados) {
     const card = document.createElement("div");
     card.className = "order-card";
-
     const header = document.createElement("button");
     header.type = "button";
     header.className = "order-card__header";
-
     const headerInfo = document.createElement("div");
     headerInfo.className = "order-card__header-info";
-
     const fechaHora = document.createElement("span");
     fechaHora.className = "order-card__datetime";
     fechaHora.textContent = formatearFechaHora(pedido.creadoEn);
     headerInfo.appendChild(fechaHora);
-
     const cliente = document.createElement("span");
     cliente.className = "order-card__client";
     cliente.textContent = `${pedido.clienteNombre || "Sin nombre"} · ${pedido.clienteWhatsapp || "Sin número"}`;
     headerInfo.appendChild(cliente);
-
     header.appendChild(headerInfo);
-
     if (pedido.formaPago) {
       const pago = document.createElement("span");
       pago.className = `tag tag--pago tag--pago-${slugifyPago(pedido.formaPago)}`;
       pago.textContent = pedido.formaPago;
       header.appendChild(pago);
     }
-
     const total = document.createElement("span");
     total.className = "order-card__total";
     total.textContent = fmt.format(pedido.total || 0);
     header.appendChild(total);
-
     const chevron = document.createElement("span");
     chevron.className = "order-card__chevron";
     chevron.textContent = "▾";
     header.appendChild(chevron);
-
     const detail = document.createElement("div");
     detail.className = "order-card__detail hidden";
-
     if (pedido.formaPago) {
       const pagoDetalle = document.createElement("p");
       pagoDetalle.className = "helper-text";
@@ -590,27 +528,26 @@ function renderPedidos() {
       pagoDetalle.innerHTML = `<strong>Forma de pago:</strong> ${pedido.formaPago}`;
       detail.appendChild(pagoDetalle);
     }
-
+    if (pedido.cuponCodigo && pedido.descuento > 0) {
+      const cuponDetalle = document.createElement("p");
+      cuponDetalle.className = "helper-text";
+      cuponDetalle.style.marginBottom = "10px";
+      cuponDetalle.innerHTML = `<strong>Cupón aplicado:</strong> ${pedido.cuponCodigo} (−${fmt.format(pedido.descuento)})`;
+      detail.appendChild(cuponDetalle);
+    }
     const tabla = document.createElement("table");
     tabla.className = "order-detail-table";
     const thead = document.createElement("thead");
     thead.innerHTML = "<tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr>";
     tabla.appendChild(thead);
-
     const tbody = document.createElement("tbody");
     for (const item of pedido.items || []) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${item.nombre}</td>
-        <td>${item.cantidad}</td>
-        <td>${fmt.format(item.precioUnitario)}</td>
-        <td>${fmt.format(item.subtotal)}</td>
-      `;
+      tr.innerHTML = `<td>${item.nombre}</td><td>${item.cantidad}</td><td>${fmt.format(item.precioUnitario)}</td><td>${fmt.format(item.subtotal)}</td>`;
       tbody.appendChild(tr);
     }
     tabla.appendChild(tbody);
     detail.appendChild(tabla);
-
     const waLink = document.createElement("a");
     waLink.className = "btn btn-secondary";
     waLink.style.marginTop = "10px";
@@ -620,71 +557,42 @@ function renderPedidos() {
     waLink.target = "_blank";
     waLink.rel = "noopener";
     detail.appendChild(waLink);
-
     header.addEventListener("click", () => {
       detail.classList.toggle("hidden");
       chevron.textContent = detail.classList.contains("hidden") ? "▾" : "▴";
     });
-
     card.appendChild(header);
     card.appendChild(detail);
     listaPedidos.appendChild(card);
   }
 }
 
-// ----- Exportar a CSV -----
 function escaparCSV(valor) {
   const texto = String(valor ?? "");
-  if (texto.includes(",") || texto.includes('"') || texto.includes("\n")) {
-    return `"${texto.replace(/"/g, '""')}"`;
-  }
+  if (texto.includes(",") || texto.includes('"') || texto.includes("\n")) return `"${texto.replace(/"/g, '""')}"`;
   return texto;
 }
 
 if (btnExportarPedidos) {
   btnExportarPedidos.addEventListener("click", () => {
     const pedidosAExportar = obtenerPedidosFiltrados();
-
-    if (pedidosAExportar.length === 0) {
-      alert("No hay pedidos para exportar con el filtro actual.");
-      return;
-    }
-
-    const filas = [
-      ["Fecha", "Hora", "Cliente", "WhatsApp", "Forma de pago", "Producto", "Cantidad", "Precio unitario", "Subtotal", "Total del pedido"],
-    ];
-
+    if (pedidosAExportar.length === 0) { alert("No hay pedidos para exportar con el filtro actual."); return; }
+    const filas = [["Fecha", "Hora", "Cliente", "WhatsApp", "Forma de pago", "Cupón", "Descuento", "Producto", "Cantidad", "Precio unitario", "Subtotal", "Total del pedido"]];
     for (const pedido of pedidosAExportar) {
       const fecha = pedido.creadoEn?.toDate ? pedido.creadoEn.toDate() : null;
       const fechaStr = fecha ? fecha.toLocaleDateString("es-AR") : "";
       const horaStr = fecha ? fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "";
-
       const items = pedido.items && pedido.items.length > 0 ? pedido.items : [{}];
-
       items.forEach((item, idx) => {
-        filas.push([
-          fechaStr,
-          horaStr,
-          pedido.clienteNombre || "",
-          pedido.clienteWhatsapp || "",
-          pedido.formaPago || "",
-          item.nombre || "",
-          item.cantidad ?? "",
-          item.precioUnitario ?? "",
-          item.subtotal ?? "",
-          idx === 0 ? pedido.total ?? "" : "",
-        ]);
+        filas.push([fechaStr, horaStr, pedido.clienteNombre || "", pedido.clienteWhatsapp || "", pedido.formaPago || "", idx === 0 ? (pedido.cuponCodigo || "") : "", idx === 0 ? (pedido.descuento ?? "") : "", item.nombre || "", item.cantidad ?? "", item.precioUnitario ?? "", item.subtotal ?? "", idx === 0 ? pedido.total ?? "" : ""]);
       });
     }
-
     const csv = filas.map((fila) => fila.map(escaparCSV).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-
     const a = document.createElement("a");
     a.href = url;
-    const hoy = new Date().toISOString().slice(0, 10);
-    a.download = `pedidos-villa-libertador-${hoy}.csv`;
+    a.download = `pedidos-villa-libertador-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -693,61 +601,34 @@ if (btnExportarPedidos) {
 }
 
 // ============================================================
-// IMPORTAR PRODUCTOS DESDE CSV
+// IMPORTAR CSV
 // ============================================================
 const csvInput = document.getElementById("csv-input");
 const csvError = document.getElementById("csv-error");
 const csvResumen = document.getElementById("csv-resumen");
-
 const modalImportar = document.getElementById("modal-importar");
 const importTableBody = document.getElementById("import-table-body");
 const insertarError = document.getElementById("importar-error");
 const btnCancelarImportar = document.getElementById("btn-cancelar-importar");
 const btnConfirmarImportar = document.getElementById("btn-confirmar-importar");
-
 let filasImportacion = [];
 
 function parsearCSV(texto) {
   const lineas = texto.split(/\r?\n/).filter((l) => l.trim() !== "");
   if (lineas.length === 0) return [];
-
   function parsearLinea(linea) {
-    const valores = [];
-    let actual = "";
-    let dentroComillas = false;
+    const valores = []; let actual = ""; let dentroComillas = false;
     for (let i = 0; i < linea.length; i++) {
       const char = linea[i];
-      if (char === '"') {
-        if (dentroComillas && linea[i + 1] === '"') {
-          actual += '"';
-          i++;
-        } else {
-          dentroComillas = !dentroComillas;
-        }
-      } else if (char === "," && !dentroComillas) {
-        valores.push(actual);
-        actual = "";
-      } else {
-        actual += char;
-      }
+      if (char === '"') { if (dentroComillas && linea[i + 1] === '"') { actual += '"'; i++; } else { dentroComillas = !dentroComillas; } }
+      else if (char === "," && !dentroComillas) { valores.push(actual); actual = ""; }
+      else { actual += char; }
     }
     valores.push(actual);
     return valores.map((v) => v.trim());
   }
-
   const headers = parsearLinea(lineas[0]).map((h) => h.toLowerCase().trim());
-  const filas = [];
-
-  for (let i = 1; i < lineas.length; i++) {
-    const valores = parsearLinea(lineas[i]);
-    const fila = {};
-    headers.forEach((h, idx) => {
-      fila[h] = valores[idx] !== undefined ? valores[idx] : "";
-    });
-    filas.push(fila);
-  }
-
-  return filas;
+  return lineas.slice(1).map((l) => { const v = parsearLinea(l); const f = {}; headers.forEach((h, i) => { f[h] = v[i] !== undefined ? v[i] : ""; }); return f; });
 }
 
 function normalizarBooleano(valor) {
@@ -760,209 +641,95 @@ if (csvInput) {
     if (csvError) csvError.textContent = "";
     const archivo = e.target.files[0];
     if (!archivo) return;
-
     try {
       const texto = await archivo.text();
       const filasCrudas = parsearCSV(texto);
-
-      if (filasCrudas.length === 0) {
-        if (csvError) csvError.textContent = "El archivo está vacío o no se pudo leer.";
-        return;
-      }
-
+      if (filasCrudas.length === 0) { if (csvError) csvError.textContent = "El archivo está vacío."; return; }
       const primerFila = filasCrudas[0];
-      const columnasEsperadas = ["codigo", "nombre", "precio", "categoria", "enstock"];
-      const columnasFaltantes = columnasEsperadas.filter((c) => !(c in primerFila));
-      if (columnasFaltantes.length > 0) {
-        if (csvError) csvError.textContent = `Faltan columnas en el archivo: ${columnasFaltantes.join(", ")}.`;
-        return;
-      }
-
+      const columnasFaltantes = ["codigo", "nombre", "precio", "categoria", "enstock"].filter((c) => !(c in primerFila));
+      if (columnasFaltantes.length > 0) { if (csvError) csvError.textContent = `Faltan columnas: ${columnasFaltantes.join(", ")}.`; return; }
       filasImportacion = filasCrudas.map((fila) => {
         const codigo = (fila.codigo || "").trim();
-        const existente = codigo
-          ? productosCache.find((p) => (p.codigo || "").trim() === codigo)
-          : null;
-
-        return {
-          codigo,
-          nombre: (fila.nombre || "").trim(),
-          precio: parseFloat(fila.precio) || 0,
-          categoria: (fila.categoria || "").trim(),
-          enStock: normalizarBooleano(fila.enstock),
-          existenteId: existente ? existente.id : null,
-          accion: existente ? "actualizar" : "agregar",
-        };
+        const existente = codigo ? productosCache.find((p) => (p.codigo || "").trim() === codigo) : null;
+        return { codigo, nombre: (fila.nombre || "").trim(), precio: parseFloat(fila.precio) || 0, categoria: (fila.categoria || "").trim(), enStock: normalizarBooleano(fila.enstock), existenteId: existente ? existente.id : null, accion: existente ? "actualizar" : "agregar" };
       });
-
-      abrirModalImportar();
+      if (csvResumen) csvResumen.textContent = `${filasImportacion.length} filas leídas: ${filasImportacion.filter((f) => f.accion === "agregar").length} nuevas, ${filasImportacion.filter((f) => f.existenteId).length} ya existentes.`;
+      renderTablaImportacion();
+      if (modalImportar) modalImportar.classList.remove("hidden");
       csvInput.value = "";
-    } catch (err) {
-      console.error(err);
-      if (csvError) csvError.textContent = "No se pudo leer el archivo. Verificá que sea un CSV válido.";
-    }
+    } catch (err) { console.error(err); if (csvError) csvError.textContent = "No se pudo leer el archivo."; }
   });
-}
-
-function abrirModalImportar() {
-  if (insertarError) insertarError.textContent = "";
-
-  const nuevos = filasImportacion.filter((f) => f.accion === "agregar").length;
-  const existentes = filasImportacion.filter((f) => f.existenteId).length;
-  if (csvResumen) csvResumen.textContent = `${filasImportacion.length} filas leídas: ${nuevos} nuevas, ${existentes} ya existentes.`;
-
-  renderTablaImportacion();
-  if (modalImportar) modalImportar.classList.remove("hidden");
 }
 
 function renderTablaImportacion() {
   if (!importTableBody) return;
   importTableBody.innerHTML = "";
-
   filasImportacion.forEach((fila) => {
     const tr = document.createElement("tr");
     tr.className = fila.existenteId ? "import-row--existente" : "import-row--nuevo";
-
     const tdCheck = document.createElement("td");
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.checked = fila.accion !== "saltear";
-    checkbox.addEventListener("change", () => {
-      fila.accion = checkbox.checked
-        ? (fila.existenteId ? "actualizar" : "agregar")
-        : "saltear";
-    });
+    checkbox.addEventListener("change", () => { fila.accion = checkbox.checked ? (fila.existenteId ? "actualizar" : "agregar") : "saltear"; });
     tdCheck.appendChild(checkbox);
     tr.appendChild(tdCheck);
-
-    const tdCodigo = document.createElement("td");
-    tdCodigo.textContent = fila.codigo || "—";
-    tr.appendChild(tdCodigo);
-
-    const tdNombre = document.createElement("td");
-    tdNombre.textContent = fila.nombre;
-    tr.appendChild(tdNombre);
-
-    const tdCategoria = document.createElement("td");
-    tdCategoria.textContent = fila.categoria;
-    tr.appendChild(tdCategoria);
-
-    const tdPrecio = document.createElement("td");
-    tdPrecio.textContent = fmt.format(fila.precio);
-    tr.appendChild(tdPrecio);
-
-    const tdStock = document.createElement("td");
-    tdStock.textContent = fila.enStock ? "Sí" : "No";
-    tr.appendChild(tdStock);
-
+    [fila.codigo || "—", fila.nombre, fila.categoria, fmt.format(fila.precio), fila.enStock ? "Sí" : "No"].forEach((val) => {
+      const td = document.createElement("td"); td.textContent = val; tr.appendChild(td);
+    });
     const tdAccion = document.createElement("td");
     if (fila.existenteId) {
       const select = document.createElement("select");
-      const optActualizar = document.createElement("option");
-      optActualizar.value = "actualizar";
-      optActualizar.textContent = "Actualizar existente";
-      const optSaltear = document.createElement("option");
-      optSaltear.value = "saltear";
-      optSaltear.textContent = "Saltear (no tocar)";
-      select.appendChild(optActualizar);
-      select.appendChild(optSaltear);
-      select.value = fila.accion;
-      select.addEventListener("change", () => {
-        fila.accion = select.value;
-        checkbox.checked = select.value !== "saltear";
+      [["actualizar", "Actualizar existente"], ["saltear", "Saltear (no tocar)"]].forEach(([v, t]) => {
+        const opt = document.createElement("option"); opt.value = v; opt.textContent = t; select.appendChild(opt);
       });
+      select.value = fila.accion;
+      select.addEventListener("change", () => { fila.accion = select.value; checkbox.checked = select.value !== "saltear"; });
       tdAccion.appendChild(select);
     } else {
-      const tag = document.createElement("span");
-      tag.className = "tag tag--promo";
-      tag.textContent = "Nuevo";
-      tdAccion.appendChild(tag);
+      const tag = document.createElement("span"); tag.className = "tag tag--promo"; tag.textContent = "Nuevo"; tdAccion.appendChild(tag);
     }
     tr.appendChild(tdAccion);
-
     importTableBody.appendChild(tr);
   });
 }
 
-if (btnCancelarImportar) {
-  btnCancelarImportar.addEventListener("click", () => {
-    modalImportar.classList.add("hidden");
-    filasImportacion = [];
-  });
-}
+if (btnCancelarImportar) { btnCancelarImportar.addEventListener("click", () => { modalImportar.classList.add("hidden"); filasImportacion = []; }); }
 
 if (btnConfirmarImportar) {
   btnConfirmarImportar.addEventListener("click", async () => {
     if (insertarError) insertarError.textContent = "";
     const aProcesar = filasImportacion.filter((f) => f.accion !== "saltear");
-
-    if (aProcesar.length === 0) {
-      if (insertarError) insertarError.textContent = "No hay ninguna fila seleccionada para importar.";
-      return;
-    }
-
-    btnConfirmarImportar.disabled = true;
-    btnConfirmarImportar.textContent = "Importando…";
-
+    if (aProcesar.length === 0) { if (insertarError) insertarError.textContent = "No hay ninguna fila seleccionada."; return; }
+    btnConfirmarImportar.disabled = true; btnConfirmarImportar.textContent = "Importando…";
     try {
       for (const fila of aProcesar) {
         if (fila.accion === "actualizar" && fila.existenteId) {
-          await updateDoc(doc(db, "productos", fila.existenteId), {
-            codigo: fila.codigo,
-            nombre: fila.nombre,
-            precio: fila.precio,
-            categoria: fila.categoria,
-            enStock: fila.enStock,
-          });
+          await updateDoc(doc(db, "productos", fila.existenteId), { codigo: fila.codigo, nombre: fila.nombre, precio: fila.precio, categoria: fila.categoria, enStock: fila.enStock });
         } else if (fila.accion === "agregar") {
-          await addDoc(collection(db, "productos"), {
-            codigo: fila.codigo,
-            nombre: fila.nombre,
-            precio: fila.precio,
-            categoria: fila.categoria,
-            orden: 0,
-            enStock: fila.enStock,
-            fraccionable: false,
-            promo: false,
-            precioPromo: null,
-            promoTexto: "",
-            imagenUrl: "",
-          });
+          await addDoc(collection(db, "productos"), { codigo: fila.codigo, nombre: fila.nombre, precio: fila.precio, categoria: fila.categoria, orden: 0, enStock: fila.enStock, fraccionable: false, promo: false, precioPromo: null, promoTexto: "", imagenUrl: "" });
         }
       }
-
-      modalImportar.classList.add("hidden");
-      filasImportacion = [];
-      alert("Importación completada.");
-    } catch (err) {
-      console.error(err);
-      if (insertarError) insertarError.textContent = "Ocurrió un error al importar. Algunos productos pueden haberse cargado igual.";
-    } finally {
-      btnConfirmarImportar.disabled = false;
-      btnConfirmarImportar.textContent = "Importar seleccionados";
-    }
+      modalImportar.classList.add("hidden"); filasImportacion = []; alert("Importación completada.");
+    } catch (err) { console.error(err); if (insertarError) insertarError.textContent = "Ocurrió un error al importar."; }
+    finally { btnConfirmarImportar.disabled = false; btnConfirmarImportar.textContent = "Importar seleccionados"; }
   });
 }
 
 function ajustarStickyNav() {
   const searchBar = document.querySelector(".search-bar");
-  if (searchBar) {
-    document.documentElement.style.setProperty(
-      "--search-bar-height",
-      `${searchBar.offsetHeight}px`
-    );
-  }
+  if (searchBar) document.documentElement.style.setProperty("--search-bar-height", `${searchBar.offsetHeight}px`);
 }
-
 window.addEventListener("resize", ajustarStickyNav);
 window.addEventListener("load", ajustarStickyNav);
 ajustarStickyNav();
 
 // ============================================================
-// CONTROL DE FLUJO Y CONEXIÓN EN TIEMPO REAL (ZONA SEGURA)
+// CONTROL DE FLUJO Y CONEXIÓN EN TIEMPO REAL
 // ============================================================
 let suscripcionProductos = null;
 let suscripcionPedidos = null;
+let suscripcionCupones = null;
 
 onAuthStateChanged(auth, (user) => {
   if (user) {
@@ -972,43 +739,34 @@ onAuthStateChanged(auth, (user) => {
     if (adminShell) adminShell.classList.remove("hidden");
 
     if (!suscripcionProductos) {
-      const productosQuery = query(
-        collection(db, "productos"),
-        orderBy("categoria"),
-        orderBy("orden")
-      );
-
+      const productosQuery = query(collection(db, "productos"), orderBy("categoria"), orderBy("orden"));
       suscripcionProductos = onSnapshot(productosQuery, (snapshot) => {
         productosCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
         aplicarFiltroAdmin();
         actualizarListaCategorias();
-        renderCategoriasAdmin(); // ← gestión de categorías
-      }, (error) => {
-        console.error("Error en productos:", error);
-      });
+        renderCategoriasAdmin();
+      }, (error) => { console.error("Error en productos:", error); });
     }
 
     if (!suscripcionPedidos) {
       const pedidosQuery = query(collection(db, "pedidos"), orderBy("creadoEn", "desc"));
-
       suscripcionPedidos = onSnapshot(pedidosQuery, (snapshot) => {
         pedidosCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
         renderPedidos();
-      }, (err) => {
-        console.error("Error en pedidos:", err);
-      });
+      }, (err) => { console.error("Error en pedidos:", err); });
+    }
+
+    if (!suscripcionCupones) {
+      suscripcionCupones = onSnapshot(collection(db, "cupones"), (snapshot) => {
+        cuponesCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        renderListaCupones();
+        actualizarDatalistCategoriasCupon();
+      }, (err) => { console.error("Error en cupones:", err); });
     }
 
   } else {
-    if (suscripcionProductos) {
-      suscripcionProductos();
-      suscripcionProductos = null;
-    }
-    if (suscripcionPedidos) {
-      suscripcionPedidos();
-      suscripcionPedidos = null;
-    }
-
+    [suscripcionProductos, suscripcionPedidos, suscripcionCupones].forEach((unsub) => { if (unsub) unsub(); });
+    suscripcionProductos = null; suscripcionPedidos = null; suscripcionCupones = null;
     if (adminShell) adminShell.classList.add("hidden");
     if (loginCard) loginCard.classList.remove("hidden");
   }
@@ -1024,57 +782,40 @@ const btnCancelarRenombrar = document.getElementById("btn-cancelar-renombrar");
 const btnConfirmarRenombrar = document.getElementById("btn-confirmar-renombrar");
 const renombrarNuevo = document.getElementById("renombrar-nuevo");
 const renombrarError = document.getElementById("renombrar-error");
-
 let categoriaEnRenombrado = null;
 
 function renderCategoriasAdmin() {
   if (!listaCatAdmin) return;
   listaCatAdmin.innerHTML = "";
-
   const categorias = [...new Set(productosCache.map((p) => p.categoria).filter(Boolean))];
   categorias.sort((a, b) => a.localeCompare(b, "es"));
-
   if (categoriasVacia) categoriasVacia.classList.toggle("hidden", categorias.length > 0);
-
   for (const cat of categorias) {
     const cantidad = productosCache.filter((p) => p.categoria === cat).length;
-
     const row = document.createElement("div");
     row.className = "admin-product-row";
     row.style.alignItems = "center";
-
     const info = document.createElement("div");
     info.className = "admin-product-row__info";
-
     const nombre = document.createElement("p");
     nombre.className = "admin-product-row__name";
     nombre.textContent = cat;
     info.appendChild(nombre);
-
     const meta = document.createElement("p");
     meta.className = "admin-product-row__meta";
     meta.textContent = `${cantidad} producto${cantidad !== 1 ? "s" : ""}`;
     info.appendChild(meta);
-
     row.appendChild(info);
-
     const actions = document.createElement("div");
     actions.className = "admin-product-row__actions";
-
     const btnRenombrar = document.createElement("button");
-    btnRenombrar.type = "button";
-    btnRenombrar.className = "icon-btn";
-    btnRenombrar.textContent = "Renombrar";
+    btnRenombrar.type = "button"; btnRenombrar.className = "icon-btn"; btnRenombrar.textContent = "Renombrar";
     btnRenombrar.addEventListener("click", () => abrirModalRenombrar(cat));
     actions.appendChild(btnRenombrar);
-
     const btnEliminarCat = document.createElement("button");
-    btnEliminarCat.type = "button";
-    btnEliminarCat.className = "icon-btn";
-    btnEliminarCat.textContent = "Eliminar";
+    btnEliminarCat.type = "button"; btnEliminarCat.className = "icon-btn"; btnEliminarCat.textContent = "Eliminar";
     btnEliminarCat.addEventListener("click", () => eliminarCategoria(cat));
     actions.appendChild(btnEliminarCat);
-
     row.appendChild(actions);
     listaCatAdmin.appendChild(row);
   }
@@ -1085,68 +826,202 @@ function abrirModalRenombrar(cat) {
   renombrarNuevo.value = cat;
   renombrarError.textContent = "";
   modalRenombrar.classList.remove("hidden");
-  renombrarNuevo.focus();
-  renombrarNuevo.select();
+  renombrarNuevo.focus(); renombrarNuevo.select();
 }
 
-if (btnCancelarRenombrar) {
-  btnCancelarRenombrar.addEventListener("click", () => {
-    modalRenombrar.classList.add("hidden");
-    categoriaEnRenombrado = null;
-  });
-}
+if (btnCancelarRenombrar) { btnCancelarRenombrar.addEventListener("click", () => { modalRenombrar.classList.add("hidden"); categoriaEnRenombrado = null; }); }
 
 if (btnConfirmarRenombrar) {
   btnConfirmarRenombrar.addEventListener("click", async () => {
     const nuevoNombre = renombrarNuevo.value.trim();
-    if (!nuevoNombre) {
-      renombrarError.textContent = "El nombre no puede estar vacío.";
-      return;
-    }
-    if (nuevoNombre === categoriaEnRenombrado) {
-      modalRenombrar.classList.add("hidden");
-      return;
-    }
-
-    btnConfirmarRenombrar.disabled = true;
-    btnConfirmarRenombrar.textContent = "Actualizando…";
-    renombrarError.textContent = "";
-
+    if (!nuevoNombre) { renombrarError.textContent = "El nombre no puede estar vacío."; return; }
+    if (nuevoNombre === categoriaEnRenombrado) { modalRenombrar.classList.add("hidden"); return; }
+    btnConfirmarRenombrar.disabled = true; btnConfirmarRenombrar.textContent = "Actualizando…"; renombrarError.textContent = "";
     try {
-      const productosAfectados = productosCache.filter(
-        (p) => p.categoria === categoriaEnRenombrado
-      );
-      for (const p of productosAfectados) {
+      for (const p of productosCache.filter((p) => p.categoria === categoriaEnRenombrado)) {
         await updateDoc(doc(db, "productos", p.id), { categoria: nuevoNombre });
       }
-      modalRenombrar.classList.add("hidden");
-      categoriaEnRenombrado = null;
-    } catch (err) {
-      console.error(err);
-      renombrarError.textContent = "No se pudo renombrar. Probá de nuevo.";
-    } finally {
-      btnConfirmarRenombrar.disabled = false;
-      btnConfirmarRenombrar.textContent = "Renombrar";
-    }
+      modalRenombrar.classList.add("hidden"); categoriaEnRenombrado = null;
+    } catch (err) { console.error(err); renombrarError.textContent = "No se pudo renombrar. Probá de nuevo."; }
+    finally { btnConfirmarRenombrar.disabled = false; btnConfirmarRenombrar.textContent = "Renombrar"; }
   });
 }
 
 async function eliminarCategoria(cat) {
   const cantidad = productosCache.filter((p) => p.categoria === cat).length;
-  const mensaje =
-    cantidad > 0
-      ? `¿Eliminar la categoría "${cat}"? Tiene ${cantidad} producto${cantidad !== 1 ? "s" : ""} que quedarán sin categoría.`
-      : `¿Eliminar la categoría "${cat}"?`;
-
+  const mensaje = cantidad > 0 ? `¿Eliminar la categoría "${cat}"? Tiene ${cantidad} producto${cantidad !== 1 ? "s" : ""} que quedarán sin categoría.` : `¿Eliminar la categoría "${cat}"?`;
   if (!confirm(mensaje)) return;
-
   try {
-    const productosAfectados = productosCache.filter((p) => p.categoria === cat);
-    for (const p of productosAfectados) {
+    for (const p of productosCache.filter((p) => p.categoria === cat)) {
       await updateDoc(doc(db, "productos", p.id), { categoria: "" });
     }
-  } catch (err) {
-    console.error(err);
-    alert("No se pudo eliminar la categoría. Probá de nuevo.");
+  } catch (err) { console.error(err); alert("No se pudo eliminar la categoría. Probá de nuevo."); }
+}
+
+// ============================================================
+// CUPONES DE DESCUENTO
+// ============================================================
+let cuponesCache = [];
+
+const formNuevoCupon = document.getElementById("form-nuevo-cupon");
+const cuponError = document.getElementById("cupon-error");
+const listaCupones = document.getElementById("lista-cupones");
+const cuponesVacio = document.getElementById("cupones-vacio");
+const cuAlcance = document.getElementById("cu-alcance");
+const cuCategoriaField = document.getElementById("cu-categoria-field");
+const cuTipo = document.getElementById("cu-tipo");
+const cuValorLabel = document.getElementById("cu-valor-label");
+const modalEditarCupon = document.getElementById("modal-editar-cupon");
+const formEditarCupon = document.getElementById("form-editar-cupon");
+const editarCuponError = document.getElementById("editar-cupon-error");
+const btnCancelarEditarCupon = document.getElementById("btn-cancelar-editar-cupon");
+const ecAlcance = document.getElementById("ec-alcance");
+const ecCategoriaField = document.getElementById("ec-categoria-field");
+const ecTipo = document.getElementById("ec-tipo");
+const ecValorLabel = document.getElementById("ec-valor-label");
+
+function actualizarCampoCategoria(selectAlcance, campoCategoria) {
+  if (!selectAlcance || !campoCategoria) return;
+  campoCategoria.classList.toggle("hidden", selectAlcance.value !== "categoria");
+}
+
+function actualizarLabelValor(selectTipo, label) {
+  if (!selectTipo || !label) return;
+  label.textContent = selectTipo.value === "porcentaje" ? "Porcentaje de descuento (%)" : "Monto fijo a descontar ($)";
+}
+
+cuAlcance?.addEventListener("change", () => actualizarCampoCategoria(cuAlcance, cuCategoriaField));
+ecAlcance?.addEventListener("change", () => actualizarCampoCategoria(ecAlcance, ecCategoriaField));
+cuTipo?.addEventListener("change", () => actualizarLabelValor(cuTipo, cuValorLabel));
+ecTipo?.addEventListener("change", () => actualizarLabelValor(ecTipo, ecValorLabel));
+
+actualizarCampoCategoria(cuAlcance, cuCategoriaField);
+actualizarLabelValor(cuTipo, cuValorLabel);
+
+function actualizarDatalistCategoriasCupon() {
+  const datalist = document.getElementById("lista-categorias-cupon");
+  if (!datalist) return;
+  const categorias = [...new Set(productosCache.map((p) => p.categoria).filter(Boolean))];
+  categorias.sort((a, b) => a.localeCompare(b, "es"));
+  datalist.innerHTML = "";
+  for (const cat of categorias) {
+    const option = document.createElement("option");
+    option.value = cat;
+    datalist.appendChild(option);
   }
+}
+
+formNuevoCupon?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  cuponError.textContent = "";
+  const codigo = document.getElementById("cu-codigo").value.trim().toUpperCase();
+  const tipo = document.getElementById("cu-tipo").value;
+  const valor = parseFloat(document.getElementById("cu-valor").value);
+  const alcance = document.getElementById("cu-alcance").value;
+  const categoria = document.getElementById("cu-categoria").value.trim();
+  const desde = document.getElementById("cu-desde").value;
+  const hasta = document.getElementById("cu-hasta").value;
+  const activo = document.getElementById("cu-activo").checked;
+
+  if (!codigo) { cuponError.textContent = "El código no puede estar vacío."; return; }
+  if (alcance === "categoria" && !categoria) { cuponError.textContent = "Especificá la categoría."; return; }
+  if (desde && hasta && desde > hasta) { cuponError.textContent = "La fecha 'desde' no puede ser posterior a 'hasta'."; return; }
+  if (cuponesCache.some((c) => c.codigo === codigo)) { cuponError.textContent = "Ya existe un cupón con ese código."; return; }
+
+  try {
+    await addDoc(collection(db, "cupones"), { codigo, tipo, valor, alcance, categoria: alcance === "categoria" ? categoria : "", desde, hasta, activo });
+    formNuevoCupon.reset();
+    actualizarCampoCategoria(cuAlcance, cuCategoriaField);
+    actualizarLabelValor(cuTipo, cuValorLabel);
+  } catch (err) { console.error(err); cuponError.textContent = "No se pudo crear el cupón. Probá de nuevo."; }
+});
+
+function formatearFechaCupon(fechaStr) {
+  if (!fechaStr) return "—";
+  const [anio, mes, dia] = fechaStr.split("-");
+  return `${dia}/${mes}/${anio}`;
+}
+
+function renderListaCupones() {
+  if (!listaCupones) return;
+  listaCupones.innerHTML = "";
+  cuponesVacio?.classList.toggle("hidden", cuponesCache.length > 0);
+
+  for (const c of cuponesCache) {
+    const row = document.createElement("div");
+    row.className = "admin-product-row";
+    const info = document.createElement("div");
+    info.className = "admin-product-row__info";
+    const name = document.createElement("p");
+    name.className = "admin-product-row__name";
+    name.textContent = c.codigo;
+    info.appendChild(name);
+    const valorTexto = c.tipo === "porcentaje" ? `${c.valor}%` : fmt.format(c.valor);
+    const alcanceTexto = c.alcance === "categoria" ? `Solo "${c.categoria}"` : "Todo el pedido";
+    const meta = document.createElement("p");
+    meta.className = "admin-product-row__meta";
+    meta.textContent = `${valorTexto} · ${alcanceTexto} · ${formatearFechaCupon(c.desde)} al ${formatearFechaCupon(c.hasta)}`;
+    info.appendChild(meta);
+    const tags = document.createElement("p");
+    const tagEstado = document.createElement("span");
+    tagEstado.className = c.activo ? "tag tag--promo" : "tag tag--soldout";
+    tagEstado.textContent = c.activo ? "Activo" : "Inactivo";
+    tags.appendChild(tagEstado);
+    info.appendChild(tags);
+    row.appendChild(info);
+    const actions = document.createElement("div");
+    actions.className = "admin-product-row__actions";
+    const btnEditar = document.createElement("button");
+    btnEditar.type = "button"; btnEditar.className = "icon-btn"; btnEditar.textContent = "Editar";
+    btnEditar.addEventListener("click", () => abrirModalEditarCupon(c));
+    actions.appendChild(btnEditar);
+    const btnEliminar = document.createElement("button");
+    btnEliminar.type = "button"; btnEliminar.className = "icon-btn"; btnEliminar.textContent = "Eliminar";
+    btnEliminar.addEventListener("click", () => eliminarCupon(c));
+    actions.appendChild(btnEliminar);
+    row.appendChild(actions);
+    listaCupones.appendChild(row);
+  }
+}
+
+function abrirModalEditarCupon(c) {
+  editarCuponError.textContent = "";
+  document.getElementById("ec-id").value = c.id;
+  document.getElementById("ec-codigo").value = c.codigo;
+  document.getElementById("ec-tipo").value = c.tipo;
+  document.getElementById("ec-valor").value = c.valor;
+  document.getElementById("ec-alcance").value = c.alcance;
+  document.getElementById("ec-categoria").value = c.categoria || "";
+  document.getElementById("ec-desde").value = c.desde || "";
+  document.getElementById("ec-hasta").value = c.hasta || "";
+  document.getElementById("ec-activo").checked = !!c.activo;
+  actualizarCampoCategoria(ecAlcance, ecCategoriaField);
+  actualizarLabelValor(ecTipo, ecValorLabel);
+  modalEditarCupon.classList.remove("hidden");
+}
+
+btnCancelarEditarCupon?.addEventListener("click", () => { modalEditarCupon.classList.add("hidden"); });
+
+formEditarCupon?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  editarCuponError.textContent = "";
+  const id = document.getElementById("ec-id").value;
+  const codigo = document.getElementById("ec-codigo").value.trim().toUpperCase();
+  const alcance = document.getElementById("ec-alcance").value;
+  const categoria = document.getElementById("ec-categoria").value.trim();
+  const desde = document.getElementById("ec-desde").value;
+  const hasta = document.getElementById("ec-hasta").value;
+  if (alcance === "categoria" && !categoria) { editarCuponError.textContent = "Especificá la categoría."; return; }
+  if (desde && hasta && desde > hasta) { editarCuponError.textContent = "La fecha 'desde' no puede ser posterior a 'hasta'."; return; }
+  if (cuponesCache.some((c) => c.codigo === codigo && c.id !== id)) { editarCuponError.textContent = "Ya existe otro cupón con ese código."; return; }
+  try {
+    await updateDoc(doc(db, "cupones", id), { codigo, tipo: document.getElementById("ec-tipo").value, valor: parseFloat(document.getElementById("ec-valor").value), alcance, categoria: alcance === "categoria" ? categoria : "", desde, hasta, activo: document.getElementById("ec-activo").checked });
+    modalEditarCupon.classList.add("hidden");
+  } catch (err) { console.error(err); editarCuponError.textContent = "No se pudieron guardar los cambios."; }
+});
+
+async function eliminarCupon(c) {
+  if (!confirm(`¿Eliminar el cupón "${c.codigo}"?`)) return;
+  try { await deleteDoc(doc(db, "cupones", c.id)); }
+  catch (err) { console.error(err); alert("No se pudo eliminar el cupón."); }
 }
