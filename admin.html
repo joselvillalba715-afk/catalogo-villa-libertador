@@ -10,7 +10,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <style>
-    /* Forzado y aislamiento exclusivo para las cajas de login para que no se estiren */
     .caja-login-fija {
       max-width: 360px !important;
       width: 90% !important;
@@ -140,6 +139,7 @@
     <div class="admin-tabs" id="admin-tabs">
       <button type="button" class="admin-tab admin-tab--active" data-tab="catalogo">Catálogo</button>
       <button type="button" class="admin-tab" data-tab="pedidos">Pedidos</button>
+      <button type="button" class="admin-tab" data-tab="cupones">Cupones</button>
     </div>
 
     <div id="tab-catalogo">
@@ -175,7 +175,7 @@
               <input type="number" id="n-precio" min="0" step="0.01" required />
             </div>
           </div>
-          <p class="helper-text">El orden define la posición dentro de la categoría (menor número = aparece primero). La categoría con menor orden de su primer producto se muestra primero en el menú.</p>
+          <p class="helper-text">El orden define la posición dentro de la categoría (menor número = aparece primero).</p>
 
           <div class="checkbox-field">
             <input type="checkbox" id="n-stock" checked />
@@ -199,10 +199,12 @@
               </div>
             </div>
           </div>
-<div class="checkbox-field">
-  <input type="checkbox" id="n-fraccionable" />
-  <label for="n-fraccionable">Se puede pedir por mitad (ej: media caja)</label>
-</div>
+
+          <div class="checkbox-field">
+            <input type="checkbox" id="n-fraccionable" />
+            <label for="n-fraccionable">Se puede pedir por mitad (ej: media caja)</label>
+          </div>
+
           <div class="field">
             <label for="n-imagen">Foto del producto</label>
             <input type="file" id="n-imagen" accept="image/*" />
@@ -224,37 +226,37 @@
         </div>
         <p class="error-text" id="csv-error"></p>
       </div>
-<div class="panel" id="panel-categorias">
-  
-  <h2>Gestionar categorías</h2>
-  <p class="helper-text">Renombrá o eliminá categorías. Al renombrar, todos los productos de esa categoría se actualizan automáticamente.</p>
-  <p class="helper-text" id="categorias-vacia">Todavía no hay categorías cargadas.</p>
-  <div id="lista-categorias-admin"></div>
-</div>
+
+      <div class="panel" id="panel-categorias">
+        <h2>Gestionar categorías</h2>
+        <p class="helper-text">Renombrá o eliminá categorías. Al renombrar, todos los productos de esa categoría se actualizan automáticamente.</p>
+        <p class="helper-text" id="categorias-vacia">Todavía no hay categorías cargadas.</p>
+        <div id="lista-categorias-admin"></div>
+      </div>
+
       <div class="panel">
         <div class="modal-backdrop hidden" id="modal-renombrar">
-  <div class="modal">
-    
-    <h2>Renombrar categoría</h2>
-    <div class="field">
-      <label for="renombrar-nuevo">Nuevo nombre</label>
-      <input type="text" id="renombrar-nuevo" required />
-    </div>
-    <p class="error-text" id="renombrar-error"></p>
-    <div class="modal-actions">
-      <button type="button" class="btn btn-secondary" id="btn-cancelar-renombrar">Cancelar</button>
-      <button type="button" class="btn btn-primary" id="btn-confirmar-renombrar">Renombrar</button>
-    </div>
-  </div>
-</div>
-        
+          <div class="modal">
+            <h2>Renombrar categoría</h2>
+            <div class="field">
+              <label for="renombrar-nuevo">Nuevo nombre</label>
+              <input type="text" id="renombrar-nuevo" required />
+            </div>
+            <p class="error-text" id="renombrar-error"></p>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-secondary" id="btn-cancelar-renombrar">Cancelar</button>
+              <button type="button" class="btn btn-primary" id="btn-confirmar-renombrar">Renombrar</button>
+            </div>
+          </div>
+        </div>
+
         <h2>Productos cargados</h2>
-        
+
         <div class="field" style="margin-bottom: 20px;">
-          <input 
-            type="text" 
-            id="admin-buscador" 
-            placeholder="🔍 Buscar producto por nombre, código o rubro..." 
+          <input
+            type="text"
+            id="admin-buscador"
+            placeholder="🔍 Buscar producto por nombre, código o rubro..."
             autocomplete="off"
             style="width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: var(--bg); color: var(--ink);"
           />
@@ -295,8 +297,76 @@
         <div class="orders-list" id="lista-pedidos"></div>
       </div>
     </div>
+
+    <!-- PESTAÑA CUPONES -->
+    <div id="tab-cupones" class="hidden">
+      <div class="panel">
+        <h2>Crear cupón de descuento</h2>
+        <form id="form-nuevo-cupon">
+          <div class="field-row">
+            <div class="field">
+              <label for="cu-codigo">Código del cupón</label>
+              <input type="text" id="cu-codigo" required placeholder="Ej: CHOCO10" style="text-transform: uppercase;" />
+            </div>
+            <div class="field">
+              <label for="cu-tipo">Tipo de descuento</label>
+              <select id="cu-tipo" required>
+                <option value="porcentaje">Porcentaje (%)</option>
+                <option value="monto">Monto fijo ($)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="cu-valor" id="cu-valor-label">Valor del descuento</label>
+            <input type="number" id="cu-valor" min="0" step="0.01" required placeholder="Ej: 10" />
+          </div>
+
+          <div class="field">
+            <label for="cu-alcance">Aplica a</label>
+            <select id="cu-alcance" required>
+              <option value="todo">Todo el pedido</option>
+              <option value="categoria">Solo una categoría específica</option>
+            </select>
+          </div>
+
+          <div class="field hidden" id="cu-categoria-field">
+            <label for="cu-categoria">Categoría</label>
+            <input type="text" id="cu-categoria" list="lista-categorias-cupon" placeholder="Ej: Golosinas Arcor" autocomplete="off" />
+            <datalist id="lista-categorias-cupon"></datalist>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="cu-desde">Válido desde</label>
+              <input type="date" id="cu-desde" required />
+            </div>
+            <div class="field">
+              <label for="cu-hasta">Válido hasta</label>
+              <input type="date" id="cu-hasta" required />
+            </div>
+          </div>
+
+          <div class="checkbox-field">
+            <input type="checkbox" id="cu-activo" checked />
+            <label for="cu-activo">Cupón activo</label>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">Crear cupón</button>
+          <p class="error-text" id="cupon-error"></p>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h2>Cupones creados</h2>
+        <p class="helper-text" id="cupones-vacio">Todavía no creaste ningún cupón.</p>
+        <div class="admin-product-list" id="lista-cupones"></div>
+      </div>
+    </div>
+
   </div>
 
+  <!-- MODAL EDITAR PRODUCTO -->
   <div class="modal-backdrop hidden" id="modal-editar">
     <div class="modal">
       <h2>Editar producto</h2>
@@ -342,7 +412,6 @@
         </div>
 
         <div id="e-promo-fields" class="hidden">
-         
           <div class="field-row">
             <div class="field">
               <label for="e-precio-promo">Precio promocional</label>
@@ -354,10 +423,12 @@
             </div>
           </div>
         </div>
- <div class="checkbox-field">
-  <input type="checkbox" id="e-fraccionable" />
-  <label for="e-fraccionable">Se puede pedir por mitad (ej: media caja)</label>
-</div>
+
+        <div class="checkbox-field">
+          <input type="checkbox" id="e-fraccionable" />
+          <label for="e-fraccionable">Se puede pedir por mitad (ej: media caja)</label>
+        </div>
+
         <div class="field">
           <label for="e-imagen">Reemplazar foto (opcional)</label>
           <input type="file" id="e-imagen" accept="image/*" />
@@ -373,6 +444,71 @@
     </div>
   </div>
 
+  <!-- MODAL EDITAR CUPÓN -->
+  <div class="modal-backdrop hidden" id="modal-editar-cupon">
+    <div class="modal">
+      <h2>Editar cupón</h2>
+      <form id="form-editar-cupon">
+        <input type="hidden" id="ec-id" />
+        <div class="field-row">
+          <div class="field">
+            <label for="ec-codigo">Código del cupón</label>
+            <input type="text" id="ec-codigo" required style="text-transform: uppercase;" />
+          </div>
+          <div class="field">
+            <label for="ec-tipo">Tipo de descuento</label>
+            <select id="ec-tipo" required>
+              <option value="porcentaje">Porcentaje (%)</option>
+              <option value="monto">Monto fijo ($)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="ec-valor" id="ec-valor-label">Valor del descuento</label>
+          <input type="number" id="ec-valor" min="0" step="0.01" required />
+        </div>
+
+        <div class="field">
+          <label for="ec-alcance">Aplica a</label>
+          <select id="ec-alcance" required>
+            <option value="todo">Todo el pedido</option>
+            <option value="categoria">Solo una categoría específica</option>
+          </select>
+        </div>
+
+        <div class="field hidden" id="ec-categoria-field">
+          <label for="ec-categoria">Categoría</label>
+          <input type="text" id="ec-categoria" list="lista-categorias-cupon" autocomplete="off" />
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="ec-desde">Válido desde</label>
+            <input type="date" id="ec-desde" required />
+          </div>
+          <div class="field">
+            <label for="ec-hasta">Válido hasta</label>
+            <input type="date" id="ec-hasta" required />
+          </div>
+        </div>
+
+        <div class="checkbox-field">
+          <input type="checkbox" id="ec-activo" />
+          <label for="ec-activo">Cupón activo</label>
+        </div>
+
+        <p class="error-text" id="editar-cupon-error"></p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancelar-editar-cupon">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL IMPORTAR CSV -->
   <div class="modal-backdrop hidden" id="modal-importar">
     <div class="modal modal--ancho">
       <h2>Revisar importación</h2>
