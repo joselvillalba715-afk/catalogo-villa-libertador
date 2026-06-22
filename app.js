@@ -554,10 +554,4 @@ onSnapshot(productosQuery, (snapshot) => {
   if (elEstado) { elEstado.textContent = "No se pudo cargar el catálogo. Revisá la configuración de Firebase."; elEstado.classList.remove("hidden"); }
 });
 
-function ajustarStickyNav() {
-  const searchBar = document.querySelector(".search-bar");
-  if (searchBar) document.documentElement.style.setProperty("--search-bar-height", `${searchBar.offsetHeight}px`);
-}
-window.addEventListener("resize", ajustarStickyNav);
-window.addEventListener("load", ajustarStickyNav);
 ajustarStickyNav();
