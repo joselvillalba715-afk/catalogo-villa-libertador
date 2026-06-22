@@ -66,6 +66,15 @@ function guardarCarrito() {
 
 let carrito = cargarCarrito();
 
+// Registro de funciones de actualización de controles por producto
+const tarjetasRegistradas = new Map(); // productoId → función actualizarControlesCard
+
+function actualizarTodasLasTarjetas() {
+  for (const [id, fn] of tarjetasRegistradas.entries()) {
+    fn();
+  }
+}
+
 function totalItems() {
   return Object.values(carrito).reduce((acc, it) => acc + it.cantidad, 0);
 }
@@ -90,21 +99,22 @@ function agregarAlCarrito(producto, cantidad) {
   }
   guardarCarrito();
   actualizarBadge();
+  actualizarTodasLasTarjetas();
 }
 
 function cambiarCantidadCarrito(id, nuevaCantidad) {
   if (!carrito[id]) return;
   if (nuevaCantidad <= 0) delete carrito[id];
   else carrito[id].cantidad = nuevaCantidad;
-  guardarCarrito(); actualizarBadge(); renderCarrito();
+  guardarCarrito(); actualizarBadge(); renderCarrito(); actualizarTodasLasTarjetas();
 }
 
 function quitarDelCarrito(id) {
-  delete carrito[id]; guardarCarrito(); actualizarBadge(); renderCarrito();
+  delete carrito[id]; guardarCarrito(); actualizarBadge(); renderCarrito(); actualizarTodasLasTarjetas();
 }
 
 function vaciarCarrito() {
-  carrito = {}; guardarCarrito(); actualizarBadge(); quitarCupon(); renderCarrito();
+  carrito = {}; guardarCarrito(); actualizarBadge(); quitarCupon(); renderCarrito(); actualizarTodasLasTarjetas();
 }
 
 function totalCarrito() {
@@ -419,6 +429,7 @@ function renderCatalogo(productos) {
   const categorias = new Map();
   for (const p of productos) { const cat = p.categoria || "Otros"; if (!categorias.has(cat)) categorias.set(cat, []); categorias.get(cat).push(p); }
   elCatalogo.innerHTML = "";
+  tarjetasRegistradas.clear();
   for (const [cat, items] of categorias.entries()) {
     const section = document.createElement("section"); section.className = "category-section"; section.id = `cat-${slugify(cat)}`;
     const title = document.createElement("h2"); title.className = "category-section__title"; title.textContent = cat; section.appendChild(title);
@@ -461,6 +472,9 @@ function renderCard(p) {
 // Actualiza los controles de una tarjeta según si el producto ya está o no en el carrito
 function actualizarControlesCard(controls, p) {
   controls.innerHTML = "";
+  // Registrar esta función para que pueda ser llamada cuando cambia el carrito externamente
+  tarjetasRegistradas.set(p.id, () => actualizarControlesCard(controls, p));
+
   const enCarrito = carrito[p.id];
 
   if (enCarrito) {
