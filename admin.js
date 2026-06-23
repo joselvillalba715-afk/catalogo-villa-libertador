@@ -20,6 +20,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  setDoc,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getStorage,
@@ -213,6 +214,8 @@ formNuevo.addEventListener("submit", async (e) => {
   const enStock = document.getElementById("n-stock").checked;
   const promo = document.getElementById("n-promo").checked;
   const fraccionable = document.getElementById("n-fraccionable")?.checked || false;
+  const minimoCompraRaw = document.getElementById("n-minimo-compra").value;
+  const minimoCompra = minimoCompraRaw !== "" ? parseFloat(minimoCompraRaw) : null;
   const precioPromo = document.getElementById("n-precio-promo").value
     ? parseFloat(document.getElementById("n-precio-promo").value)
     : null;
@@ -220,7 +223,7 @@ formNuevo.addEventListener("submit", async (e) => {
   const archivo = document.getElementById("n-imagen").files[0];
   try {
     const docRef = await addDoc(collection(db, "productos"), {
-      nombre, codigo, categoria, precio, orden, enStock, promo, fraccionable,
+      nombre, codigo, categoria, precio, orden, enStock, promo, fraccionable, minimoCompra,
       precioPromo: promo ? precioPromo : null,
       promoTexto: promo ? promoTexto : "",
       imagenUrl: "",
@@ -374,6 +377,8 @@ function abrirModalEditar(p) {
   document.getElementById("e-imagen").value = "";
   const eFraccionable = document.getElementById("e-fraccionable");
   if (eFraccionable) eFraccionable.checked = !!p.fraccionable;
+  const eMinimoCompra = document.getElementById("e-minimo-compra");
+  if (eMinimoCompra) eMinimoCompra.value = p.minimoCompra != null ? p.minimoCompra : "";
   ePromoFields.classList.toggle("hidden", !p.promo);
   modalEditar.classList.remove("hidden");
 }
@@ -389,6 +394,8 @@ formEditar.addEventListener("submit", async (e) => {
   const id = document.getElementById("e-id").value;
   const promo = document.getElementById("e-promo").checked;
   const fraccionable = document.getElementById("e-fraccionable")?.checked || false;
+  const minimoCompraRawE = document.getElementById("e-minimo-compra").value;
+  const minimoCompra = minimoCompraRawE !== "" ? parseFloat(minimoCompraRawE) : null;
   const datos = {
     nombre: document.getElementById("e-nombre").value.trim(),
     codigo: document.getElementById("e-codigo").value.trim(),
@@ -396,7 +403,7 @@ formEditar.addEventListener("submit", async (e) => {
     precio: parseFloat(document.getElementById("e-precio").value),
     orden: parseInt(document.getElementById("e-orden").value, 10) || 0,
     enStock: document.getElementById("e-stock").checked,
-    promo, fraccionable,
+    promo, fraccionable, minimoCompra,
     precioPromo: promo ? parseFloat(document.getElementById("e-precio-promo").value) || null : null,
     promoTexto: promo ? document.getElementById("e-promo-texto").value.trim() : "",
   };
@@ -737,6 +744,7 @@ onAuthStateChanged(auth, (user) => {
     if (registroCard) registroCard.classList.add("hidden");
     if (resetCard) resetCard.classList.add("hidden");
     if (adminShell) adminShell.classList.remove("hidden");
+    cargarMinimoGeneral();
 
     if (!suscripcionProductos) {
       const productosQuery = query(collection(db, "productos"), orderBy("categoria"), orderBy("orden"));
@@ -1038,4 +1046,43 @@ async function eliminarCupon(c) {
   if (!confirm(`¿Eliminar el cupón "${c.codigo}"?`)) return;
   try { await deleteDoc(doc(db, "cupones", c.id)); }
   catch (err) { console.error(err); alert("No se pudo eliminar el cupón."); }
+}
+
+// ============================================================
+// MÍNIMO GENERAL DE COMPRA
+// ============================================================
+
+const btnGuardarMinimoGeneral = document.getElementById("btn-guardar-minimo-general");
+const minimoGeneralInput = document.getElementById("minimo-general-valor");
+const minimoGeneralError = document.getElementById("minimo-general-error");
+const minimoGeneralOk = document.getElementById("minimo-general-ok");
+
+// Cargar el valor actual al iniciar
+async function cargarMinimoGeneral() {
+  try {
+    const snap = await getDoc(doc(db, "configuracion", "catalogo"));
+    if (snap.exists() && minimoGeneralInput) {
+      const val = snap.data().minimoGeneral;
+      minimoGeneralInput.value = val != null && val > 0 ? val : "";
+    }
+  } catch (err) {
+    console.error("Error cargando mínimo general:", err);
+  }
+}
+
+if (btnGuardarMinimoGeneral) {
+  btnGuardarMinimoGeneral.addEventListener("click", async () => {
+    minimoGeneralError.textContent = "";
+    minimoGeneralOk.classList.add("hidden");
+    const raw = minimoGeneralInput.value;
+    const valor = raw !== "" ? parseFloat(raw) : 0;
+    try {
+      await setDoc(doc(db, "configuracion", "catalogo"), { minimoGeneral: valor }, { merge: true });
+      minimoGeneralOk.classList.remove("hidden");
+      setTimeout(() => minimoGeneralOk.classList.add("hidden"), 3000);
+    } catch (err) {
+      console.error(err);
+      minimoGeneralError.textContent = "No se pudo guardar. Probá de nuevo.";
+    }
+  });
 }
