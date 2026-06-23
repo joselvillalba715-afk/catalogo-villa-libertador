@@ -253,7 +253,7 @@ document.getElementById("btn-quitar-cupon")?.addEventListener("click", () => {
   quitarCupon(); renderCarrito();
 });
 
-function mensajeWhatsAppCarrito(nombreCliente, formaPago) {
+function mensajeWhatsAppCarrito(nombreCliente, formaPago, observaciones) {
   const items = Object.values(carrito);
   const lineas = items.map((it) => `• ${it.nombre} x${fmtCantidad(it.cantidad)} (${fmt.format(it.precioUnitario)} c/u) = ${fmt.format(it.precioUnitario * it.cantidad)}`);
   const descuento = calcularDescuento();
@@ -264,7 +264,8 @@ function mensajeWhatsAppCarrito(nombreCliente, formaPago) {
   } else {
     bloqueTotales += `\nTotal: ${fmt.format(totalCarrito())}`;
   }
-  return `${waBase}?text=${encodeURIComponent(`Hola! Soy ${nombreCliente} y quiero hacer este pedido:\n\n${lineas.join("\n")}${bloqueTotales}\nForma de pago: ${formaPago}`)}`;
+  const bloqueObservaciones = observaciones ? `\n\nObservaciones: ${observaciones}` : "";
+  return `${waBase}?text=${encodeURIComponent(`Hola! Soy ${nombreCliente} y quiero hacer este pedido:\n\n${lineas.join("\n")}${bloqueTotales}\nForma de pago: ${formaPago}${bloqueObservaciones}`)}`;
 }
 
 // ----- Vistas del drawer -----
@@ -290,6 +291,7 @@ if (elFormDatosCliente) {
     const nombreCliente = document.getElementById("cliente-nombre").value.trim();
     const whatsappCliente = document.getElementById("cliente-whatsapp").value.trim().replace(/[^0-9]/g, "");
     const formaPago = document.getElementById("cliente-pago").value;
+    const observaciones = document.getElementById("cliente-observaciones").value.trim();
     if (!nombreCliente || !whatsappCliente || !formaPago) {
       elDatosClienteError.textContent = "Completá tu nombre, tu número de WhatsApp y la forma de pago.";
       return;
@@ -298,7 +300,7 @@ if (elFormDatosCliente) {
     const descuento = calcularDescuento();
 
     // Abrimos la ventana ANTES del await para que Safari no la bloquee como popup
-    const linkWA = mensajeWhatsAppCarrito(nombreCliente, formaPago);
+    const linkWA = mensajeWhatsAppCarrito(nombreCliente, formaPago, observaciones);
     const ventanaWA = window.open("", "_blank");
     if (ventanaWA) ventanaWA.location.href = linkWA;
 
@@ -307,7 +309,8 @@ if (elFormDatosCliente) {
       await addDoc(collection(db, "pedidos"), {
         clienteNombre: nombreCliente, clienteWhatsapp: whatsappCliente, formaPago, items,
         subtotal: totalCarrito(), cuponCodigo: cuponAplicado ? cuponAplicado.codigo : null,
-        descuento, total: totalConDescuento(), creadoEn: serverTimestamp(),
+        descuento, total: totalConDescuento(), observaciones: observaciones || "",
+        creadoEn: serverTimestamp(),
       });
       // Si el navegador bloqueó la ventana, usamos location.href como fallback
       if (!ventanaWA || ventanaWA.closed) {
