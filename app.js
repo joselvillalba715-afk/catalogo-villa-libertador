@@ -8,6 +8,7 @@ import {
   orderBy,
   onSnapshot,
   addDoc,
+  doc,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -120,6 +121,23 @@ function vaciarCarrito() {
 function totalCarrito() {
   return Object.values(carrito).reduce((acc, it) => acc + it.precioUnitario * it.cantidad, 0);
 }
+
+// ============================================================
+// CONFIGURACIÓN GENERAL (mínimo de compra)
+// ============================================================
+let minimoGeneral = 0;
+
+onSnapshot(doc(db, "configuracion", "catalogo"), (snap) => {
+  if (snap.exists()) {
+    minimoGeneral = snap.data().minimoGeneral || 0;
+  } else {
+    minimoGeneral = 0;
+  }
+  // Re-renderizar el carrito si está abierto para actualizar el aviso
+  if (elCartBackdrop && !elCartBackdrop.classList.contains("hidden")) {
+    renderCarrito();
+  }
+});
 
 // ============================================================
 // CUPONES
@@ -255,7 +273,7 @@ document.getElementById("btn-quitar-cupon")?.addEventListener("click", () => {
 
 function mensajeWhatsAppCarrito(nombreCliente, formaPago, observaciones) {
   const items = Object.values(carrito);
-  const lineas = items.map((it) => `• ${it.nombre} x${fmtCantidad(it.cantidad)} (${fmt.format(it.precioUnitario)} c/u) = ${fmt.format(it.precioUnitario * it.cantidad)}`);
+  const lineas = items.map((it) => `• ${fmtCantidad(it.cantidad)}x ${it.nombre} (${fmt.format(it.precioUnitario)} c/u) = ${fmt.format(it.precioUnitario * it.cantidad)}`);
   const descuento = calcularDescuento();
   let bloqueTotales = `\n\nSubtotal: ${fmt.format(totalCarrito())}`;
   if (descuento > 0 && cuponAplicado) {
@@ -371,7 +389,24 @@ function renderCarrito() {
   totalRow.innerHTML = `<span>Total</span><span>${fmt.format(totalConDescuento())}</span>`;
   elCartFooter.appendChild(totalRow);
 
-  const btnEnviar = document.createElement("button"); btnEnviar.type = "button"; btnEnviar.className = "btn btn-primary btn-block"; btnEnviar.textContent = "Continuar pedido"; btnEnviar.addEventListener("click", mostrarVistaDatos); elCartFooter.appendChild(btnEnviar);
+  // Aviso y bloqueo por mínimo general
+  if (minimoGeneral > 0 && totalConDescuento() < minimoGeneral) {
+    const faltante = minimoGeneral - totalConDescuento();
+    const avisoMinimo = document.createElement("p");
+    avisoMinimo.className = "cart-minimo-aviso";
+    avisoMinimo.textContent = `Mínimo de compra: ${fmt.format(minimoGeneral)}. Te faltan ${fmt.format(faltante)}.`;
+    elCartFooter.appendChild(avisoMinimo);
+  }
+
+  const btnEnviar = document.createElement("button"); btnEnviar.type = "button"; btnEnviar.className = "btn btn-primary btn-block"; btnEnviar.textContent = "Continuar pedido";
+  if (minimoGeneral > 0 && totalConDescuento() < minimoGeneral) {
+    btnEnviar.disabled = true;
+    btnEnviar.style.opacity = "0.5";
+    btnEnviar.style.cursor = "not-allowed";
+  } else {
+    btnEnviar.addEventListener("click", mostrarVistaDatos);
+  }
+  elCartFooter.appendChild(btnEnviar);
   const btnVaciar = document.createElement("button"); btnVaciar.type = "button"; btnVaciar.className = "btn btn-secondary btn-block"; btnVaciar.textContent = "Vaciar pedido"; btnVaciar.addEventListener("click", vaciarCarrito); elCartFooter.appendChild(btnVaciar);
 }
 
@@ -474,6 +509,15 @@ function renderCard(p) {
     const btn = document.createElement("button"); btn.type = "button"; btn.className = "btn-order btn-order--disabled"; btn.textContent = "No disponible"; btn.disabled = true; body.appendChild(btn);
   } else {
     const controls = document.createElement("div"); controls.className = "product-card__controls";
+
+    // Aviso de mínimo si existe
+    if (p.minimoCompra != null && p.minimoCompra > 0) {
+      const avisoMin = document.createElement("p");
+      avisoMin.className = "product-card__minimo-texto";
+      avisoMin.textContent = `Mín. ${fmtCantidad(p.minimoCompra)} ${p.fraccionable ? "unid." : p.minimoCompra === 1 ? "unid." : "unid."}`;
+      controls.appendChild(avisoMin);
+    }
+
     actualizarControlesCard(controls, p);
     body.appendChild(controls);
   }
@@ -530,13 +574,36 @@ function actualizarControlesCard(controls, p) {
     });
     controls.appendChild(btnQuitar);
   } else {
-    const stepper = crearStepper(1, null, p.fraccionable ? 0.5 : 1);
+    const minimo = (p.minimoCompra != null && p.minimoCompra > 0) ? p.minimoCompra : (p.fraccionable ? 0.5 : 1);
+    const stepper = crearStepper(minimo, null, p.fraccionable ? 0.5 : 1);
     controls.appendChild(stepper);
 
     const btnAgregar = document.createElement("button");
     btnAgregar.type = "button";
     btnAgregar.className = "btn-add";
     btnAgregar.textContent = "Agregar";
+
+    // Verificar si la cantidad actual del stepper cumple el mínimo
+    function verificarMinimo() {
+      const cantidadActual = parseFloat(
+        stepper.querySelector(".qty-stepper__value").textContent.replace(",", ".")
+      );
+      if (p.minimoCompra != null && p.minimoCompra > 0 && cantidadActual < p.minimoCompra) {
+        btnAgregar.disabled = true;
+        btnAgregar.style.opacity = "0.5";
+        btnAgregar.title = `Mínimo: ${fmtCantidad(p.minimoCompra)} unidades`;
+      } else {
+        btnAgregar.disabled = false;
+        btnAgregar.style.opacity = "";
+        btnAgregar.title = "";
+      }
+    }
+
+    // Escuchar cambios en el stepper para actualizar el estado del botón
+    stepper.querySelector(".qty-stepper button:first-child").addEventListener("click", verificarMinimo);
+    stepper.querySelector(".qty-stepper button:last-child").addEventListener("click", verificarMinimo);
+    verificarMinimo();
+
     btnAgregar.addEventListener("click", () => {
       const cantidad = parseFloat(stepper.querySelector(".qty-stepper__value").textContent.replace(",", "."));
       agregarAlCarrito(p, cantidad);
