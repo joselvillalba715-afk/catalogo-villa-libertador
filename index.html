@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>Catálogo — Distribuidora Villa Libertador</title>
   <meta name="description" content="Catálogo de productos, precios y promociones de Distribuidora Villa Libertador." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -62,6 +62,7 @@
         <div class="cart-drawer__body" id="cart-items">
         </div>
 
+        <!-- Cupón de descuento -->
         <div class="cart-coupon hidden" id="cart-coupon-block">
           <div class="cart-coupon__row">
             <input
@@ -127,9 +128,18 @@
     Distribuidora Villa Libertador SRL · Barrio Santa Isabel Segunda, Córdoba
     <br />
     ¿Tenés una consulta? Escribinos por
-    <a id="wa-footer-link" href="https://wa.me/5493517509439" target="_blank" rel="noopener">WhatsApp</a>.
+    <a id="wa-footer-link" href="#" target="_blank" rel="noopener">WhatsApp</a>.
   </footer>
 
- <script type="module" src="app.js?v=2"></script>
+  <!-- Popup promocional -->
+  <div class="promo-popup-backdrop hidden" id="promo-popup-backdrop">
+    <div class="promo-popup" id="promo-popup">
+      <button class="promo-popup__cerrar" id="promo-popup-cerrar" aria-label="Cerrar">✕</button>
+      <div class="promo-popup__barra-timer" id="promo-popup-barra"></div>
+      <img class="promo-popup__img" id="promo-popup-img" src="" alt="Promoción" />
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
 </body>
 </html>
