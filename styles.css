@@ -598,3 +598,65 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 20px 100px; }
   background: var(--primary);
   z-index: 2;
 }
+
+/* ============================================================
+   PRECIOS POR VOLUMEN
+   ============================================================ */
+
+.volumen-tabla {
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 0.75rem;
+}
+
+.volumen-tabla__fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink-soft);
+  transition: background 0.15s;
+}
+
+.volumen-tabla__fila:last-child {
+  border-bottom: none;
+}
+
+.volumen-tabla__fila--activa {
+  background: #e3f2e1;
+  color: #2d7a4f;
+  font-weight: 700;
+}
+
+/* Estilos en admin para los campos de precios por volumen */
+.precio-volumen-filas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.precio-volumen-fila {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.precio-volumen-fila input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.precio-volumen-fila input:first-child {
+  max-width: 110px;
+}
