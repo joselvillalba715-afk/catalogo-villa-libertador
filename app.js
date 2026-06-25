@@ -260,7 +260,7 @@ function renderBloqueCupon() {
 }
 
 document.getElementById("btn-aplicar-cupon")?.addEventListener("click", () => {
-   aplicarCupon(document.getElementById("cupon-input").value);
+  aplicarCupon(document.getElementById("cupon-input").value);
 });
 
 document.getElementById("cupon-input")?.addEventListener("keydown", (e) => {
@@ -310,44 +310,34 @@ if (elFormDatosCliente) {
     const whatsappCliente = document.getElementById("cliente-whatsapp").value.trim().replace(/[^0-9]/g, "");
     const formaPago = document.getElementById("cliente-pago").value;
     const observaciones = document.getElementById("cliente-observaciones").value.trim();
-    
     if (!nombreCliente || !whatsappCliente || !formaPago) {
       elDatosClienteError.textContent = "Completá tu nombre, tu número de WhatsApp y la forma de pago.";
       return;
     }
-    
     const items = Object.entries(carrito).map(([id, it]) => ({ productoId: id, nombre: it.nombre, cantidad: it.cantidad, precioUnitario: it.precioUnitario, subtotal: it.precioUnitario * it.cantidad }));
     const descuento = calcularDescuento();
-    const linkWA = mensajeWhatsAppCarrito(nombreCliente, formaPago, observaciones);
 
-    elBtnConfirmarPedido.disabled = true; 
-    elBtnConfirmarPedido.textContent = "Enviando…";
-    
+    // Abrimos la ventana ANTES del await para que Safari no la bloquee como popup
+    const linkWA = mensajeWhatsAppCarrito(nombreCliente, formaPago, observaciones);
+    const ventanaWA = window.open("", "_blank");
+    if (ventanaWA) ventanaWA.location.href = linkWA;
+
+    elBtnConfirmarPedido.disabled = true; elBtnConfirmarPedido.textContent = "Enviando…";
     try {
-      // 1. Guardamos el pedido en Firestore primero
       await addDoc(collection(db, "pedidos"), {
         clienteNombre: nombreCliente, clienteWhatsapp: whatsappCliente, formaPago, items,
         subtotal: totalCarrito(), cuponCodigo: cuponAplicado ? cuponAplicado.codigo : null,
         descuento, total: totalConDescuento(), observaciones: observaciones || "",
         creadoEn: serverTimestamp(),
       });
-      
-      // 2. Limpiamos la interfaz y el carrito local
-      vaciarCarrito(); 
-      elFormDatosCliente.reset(); 
-      elCartBackdrop.classList.add("hidden"); 
-      mostrarVistaItems();
-
-      // 3. Redirección limpia y segura para Android e iOS (Elimina el bucle de Play Store)
-      window.location.href = linkWA;
-
+      // Si el navegador bloqueó la ventana, usamos location.href como fallback
+      if (!ventanaWA || ventanaWA.closed) {
+        window.location.href = linkWA;
+      }
+      vaciarCarrito(); elFormDatosCliente.reset(); elCartBackdrop.classList.add("hidden"); mostrarVistaItems();
     } catch (err) {
-      console.error(err); 
-      elDatosClienteError.textContent = "No se pudo registrar el pedido. Probá de nuevo en unos segundos.";
-    } finally { 
-      elBtnConfirmarPedido.disabled = false; 
-      elBtnConfirmarPedido.textContent = "Confirmar y enviar por WhatsApp"; 
-    }
+      console.error(err); elDatosClienteError.textContent = "No se pudo registrar el pedido. Probá de nuevo en unos segundos.";
+    } finally { elBtnConfirmarPedido.disabled = false; elBtnConfirmarPedido.textContent = "Confirmar y enviar por WhatsApp"; }
   });
 }
 
@@ -457,10 +447,10 @@ let todosLosProductos = [];
 
 function renderNavCategorias(productos) {
   if (!elCatNav) return;
-  const categories = [...new Set(productos.map((p) => p.categoria || "Otros"))];
+  const categorias = [...new Set(productos.map((p) => p.categoria || "Otros"))];
   const valorPrevio = elCatNav.value;
   elCatNav.innerHTML = `<option value="">Todas las categorías</option>`;
-  for (const cat of categories) { const opt = document.createElement("option"); opt.value = cat; opt.textContent = cat; elCatNav.appendChild(opt); }
+  for (const cat of categorias) { const opt = document.createElement("option"); opt.value = cat; opt.textContent = cat; elCatNav.appendChild(opt); }
   if (valorPrevio) elCatNav.value = valorPrevio;
 }
 
@@ -520,6 +510,7 @@ function renderCard(p) {
   } else {
     const controls = document.createElement("div"); controls.className = "product-card__controls";
 
+    // Aviso de mínimo si existe
     if (p.minimoCompra != null && p.minimoCompra > 0) {
       const avisoMin = document.createElement("p");
       avisoMin.className = "product-card__minimo-texto";
@@ -534,8 +525,10 @@ function renderCard(p) {
   return card;
 }
 
+// Actualiza los controles de una tarjeta según si el producto ya está o no en el carrito
 function actualizarControlesCard(controls, p) {
   controls.innerHTML = "";
+  // Registrar esta función para que pueda ser llamada cuando cambia el carrito externamente
   tarjetasRegistradas.set(p.id, () => actualizarControlesCard(controls, p));
 
   const enCarrito = carrito[p.id];
@@ -546,6 +539,7 @@ function actualizarControlesCard(controls, p) {
     label.textContent = "✓ En carrito";
     controls.appendChild(label);
 
+    // Stepper arranca en la cantidad actual, pero NO modifica el carrito hasta que se toca Modificar
     const stepperMod = crearStepper(enCarrito.cantidad, null, p.fraccionable ? 0.5 : 1);
     controls.appendChild(stepperMod);
 
@@ -564,6 +558,7 @@ function actualizarControlesCard(controls, p) {
       }
       actualizarControlesCard(controls, p);
 
+      // Feedback visual breve
       btnModificar.textContent = "✓ Listo";
       setTimeout(() => actualizarControlesCard(controls, p), 800);
     });
@@ -588,6 +583,7 @@ function actualizarControlesCard(controls, p) {
     btnAgregar.className = "btn-add";
     btnAgregar.textContent = "Agregar";
 
+    // Verificar si la cantidad actual del stepper cumple el mínimo
     function verificarMinimo() {
       const cantidadActual = parseFloat(
         stepper.querySelector(".qty-stepper__value").textContent.replace(",", ".")
@@ -603,6 +599,7 @@ function actualizarControlesCard(controls, p) {
       }
     }
 
+    // Escuchar cambios en el stepper para actualizar el estado del botón
     stepper.querySelector(".qty-stepper button:first-child").addEventListener("click", verificarMinimo);
     stepper.querySelector(".qty-stepper button:last-child").addEventListener("click", verificarMinimo);
     verificarMinimo();
@@ -625,4 +622,55 @@ onSnapshot(productosQuery, (snapshot) => {
 }, (error) => {
   console.error(error);
   if (elEstado) { elEstado.textContent = "No se pudo cargar el catálogo. Revisá la configuración de Firebase."; elEstado.classList.remove("hidden"); }
+});
+
+
+
+// ============================================================
+// POPUP PROMOCIONAL
+// ============================================================
+let popupTimer = null;
+
+onSnapshot(doc(db, "configuracion", "popup"), (snap) => {
+  if (!snap.exists()) return;
+  const datos = snap.data();
+  if (!datos.activo || !datos.imagenUrl) return;
+
+  const backdrop = document.getElementById("promo-popup-backdrop");
+  const img = document.getElementById("promo-popup-img");
+  const barra = document.getElementById("promo-popup-barra");
+  const btnCerrar = document.getElementById("promo-popup-cerrar");
+  if (!backdrop || !img) return;
+
+  img.src = datos.imagenUrl;
+  backdrop.classList.remove("hidden");
+
+  const segundos = datos.segundos || 8;
+
+  // Barra de progreso animada
+  barra.style.transition = "none";
+  barra.style.width = "100%";
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      barra.style.transition = `width ${segundos}s linear`;
+      barra.style.width = "0%";
+    });
+  });
+
+  // Cierre automático
+  if (popupTimer) clearTimeout(popupTimer);
+  popupTimer = setTimeout(() => backdrop.classList.add("hidden"), segundos * 1000);
+
+  // Cierre manual
+  btnCerrar.onclick = () => {
+    clearTimeout(popupTimer);
+    backdrop.classList.add("hidden");
+  };
+
+  backdrop.onclick = (e) => {
+    if (e.target === backdrop) {
+      clearTimeout(popupTimer);
+      backdrop.classList.add("hidden");
+    }
+  };
 });
