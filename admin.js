@@ -216,6 +216,7 @@ formNuevo.addEventListener("submit", async (e) => {
   const fraccionable = document.getElementById("n-fraccionable")?.checked || false;
   const minimoCompraRaw = document.getElementById("n-minimo-compra").value;
   const minimoCompra = minimoCompraRaw !== "" ? parseFloat(minimoCompraRaw) : null;
+  const preciosVolumen = leerEscalonesVolumen("n-volumen-filas");
   const precioPromo = document.getElementById("n-precio-promo").value
     ? parseFloat(document.getElementById("n-precio-promo").value)
     : null;
@@ -224,6 +225,7 @@ formNuevo.addEventListener("submit", async (e) => {
   try {
     const docRef = await addDoc(collection(db, "productos"), {
       nombre, codigo, categoria, precio, orden, enStock, promo, fraccionable, minimoCompra,
+      preciosVolumen,
       precioPromo: promo ? precioPromo : null,
       promoTexto: promo ? promoTexto : "",
       imagenUrl: "",
@@ -234,6 +236,7 @@ formNuevo.addEventListener("submit", async (e) => {
     }
     formNuevo.reset();
     nPromoFields.classList.add("hidden");
+    limpiarEscalonesVolumen("n-volumen-filas");
   } catch (err) {
     console.error(err);
     nuevoError.textContent = "No se pudo agregar el producto. Probá de nuevo.";
@@ -379,6 +382,7 @@ function abrirModalEditar(p) {
   if (eFraccionable) eFraccionable.checked = !!p.fraccionable;
   const eMinimoCompra = document.getElementById("e-minimo-compra");
   if (eMinimoCompra) eMinimoCompra.value = p.minimoCompra != null ? p.minimoCompra : "";
+  cargarEscalonesVolumen("e-volumen-filas", p.preciosVolumen || []);
   ePromoFields.classList.toggle("hidden", !p.promo);
   modalEditar.classList.remove("hidden");
 }
@@ -396,6 +400,7 @@ formEditar.addEventListener("submit", async (e) => {
   const fraccionable = document.getElementById("e-fraccionable")?.checked || false;
   const minimoCompraRawE = document.getElementById("e-minimo-compra").value;
   const minimoCompra = minimoCompraRawE !== "" ? parseFloat(minimoCompraRawE) : null;
+  const preciosVolumen = leerEscalonesVolumen("e-volumen-filas");
   const datos = {
     nombre: document.getElementById("e-nombre").value.trim(),
     codigo: document.getElementById("e-codigo").value.trim(),
@@ -403,7 +408,7 @@ formEditar.addEventListener("submit", async (e) => {
     precio: parseFloat(document.getElementById("e-precio").value),
     orden: parseInt(document.getElementById("e-orden").value, 10) || 0,
     enStock: document.getElementById("e-stock").checked,
-    promo, fraccionable, minimoCompra,
+    promo, fraccionable, minimoCompra, preciosVolumen,
     precioPromo: promo ? parseFloat(document.getElementById("e-precio-promo").value) || null : null,
     promoTexto: promo ? document.getElementById("e-promo-texto").value.trim() : "",
   };
@@ -1245,4 +1250,44 @@ if (btnGuardarPopup) {
       btnGuardarPopup.textContent = "Guardar popup";
     }
   });
+}
+
+// ============================================================
+// PRECIOS POR VOLUMEN — funciones auxiliares
+// ============================================================
+
+function leerEscalonesVolumen(contenedorId) {
+  const contenedor = document.getElementById(contenedorId);
+  if (!contenedor) return [];
+  const filas = contenedor.querySelectorAll(".precio-volumen-fila");
+  const escalones = [];
+  filas.forEach((fila) => {
+    const cantidadInput = fila.querySelector(".pv-cantidad");
+    const precioInput = fila.querySelector(".pv-precio");
+    const cantidad = cantidadInput ? parseFloat(cantidadInput.value) : NaN;
+    const precio = precioInput ? parseFloat(precioInput.value) : NaN;
+    if (!isNaN(cantidad) && cantidad > 0 && !isNaN(precio) && precio > 0) {
+      escalones.push({ cantidad, precio });
+    }
+  });
+  // Ordenar de menor a mayor cantidad
+  escalones.sort((a, b) => a.cantidad - b.cantidad);
+  return escalones;
+}
+
+function cargarEscalonesVolumen(contenedorId, escalones) {
+  const contenedor = document.getElementById(contenedorId);
+  if (!contenedor) return;
+  const filas = contenedor.querySelectorAll(".precio-volumen-fila");
+  filas.forEach((fila, idx) => {
+    const cantidadInput = fila.querySelector(".pv-cantidad");
+    const precioInput = fila.querySelector(".pv-precio");
+    const escalon = escalones[idx];
+    if (cantidadInput) cantidadInput.value = escalon ? escalon.cantidad : "";
+    if (precioInput) precioInput.value = escalon ? escalon.precio : "";
+  });
+}
+
+function limpiarEscalonesVolumen(contenedorId) {
+  cargarEscalonesVolumen(contenedorId, []);
 }
