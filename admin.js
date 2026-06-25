@@ -463,7 +463,7 @@ function obtenerPedidosFiltrados() {
 }
 
 [filtroDesde, filtroHasta, filtroCliente].forEach((el) => {
-  if (el) el.addEventListener("input", renderPedidos);
+  if (el) el.addEventListener("input", () => { paginaActualPedidos = 1; renderPedidos(); });
 });
 
 if (btnLimpiarFiltros) {
@@ -471,6 +471,7 @@ if (btnLimpiarFiltros) {
     filtroDesde.value = "";
     filtroHasta.value = "";
     filtroCliente.value = "";
+    paginaActualPedidos = 1;
     renderPedidos();
   });
 }
@@ -485,6 +486,9 @@ function formatearFechaHora(timestamp) {
   return `${fecha.toLocaleDateString("es-AR")} · ${fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
+const PEDIDOS_POR_PAGINA = 10;
+let paginaActualPedidos = 1;
+
 function renderPedidos() {
   if (!listaPedidos) return;
   const pedidosFiltrados = obtenerPedidosFiltrados();
@@ -495,9 +499,16 @@ function renderPedidos() {
     pedidosSinResultados.classList.toggle("hidden", !(pedidosCache.length > 0 && hayFiltrosActivos && pedidosFiltrados.length === 0));
   }
 
-  for (const pedido of pedidosFiltrados) {
+  const totalPaginas = Math.ceil(pedidosFiltrados.length / PEDIDOS_POR_PAGINA);
+  if (paginaActualPedidos > totalPaginas) paginaActualPedidos = Math.max(1, totalPaginas);
+  const inicio = (paginaActualPedidos - 1) * PEDIDOS_POR_PAGINA;
+  const pedidosPagina = pedidosFiltrados.slice(inicio, inicio + PEDIDOS_POR_PAGINA);
+
+  for (const pedido of pedidosPagina) {
     const card = document.createElement("div");
     card.className = "order-card";
+    if (pedido.procesado) card.classList.add("order-card--procesado");
+
     const header = document.createElement("button");
     header.type = "button";
     header.className = "order-card__header";
@@ -512,6 +523,14 @@ function renderPedidos() {
     cliente.textContent = `${pedido.clienteNombre || "Sin nombre"} · ${pedido.clienteWhatsapp || "Sin número"}`;
     headerInfo.appendChild(cliente);
     header.appendChild(headerInfo);
+
+    if (pedido.procesado) {
+      const tagProcesado = document.createElement("span");
+      tagProcesado.className = "tag tag--procesado";
+      tagProcesado.textContent = "✓ Procesado";
+      header.appendChild(tagProcesado);
+    }
+
     if (pedido.formaPago) {
       const pago = document.createElement("span");
       pago.className = `tag tag--pago tag--pago-${slugifyPago(pedido.formaPago)}`;
@@ -526,8 +545,10 @@ function renderPedidos() {
     chevron.className = "order-card__chevron";
     chevron.textContent = "▾";
     header.appendChild(chevron);
+
     const detail = document.createElement("div");
     detail.className = "order-card__detail hidden";
+
     if (pedido.formaPago) {
       const pagoDetalle = document.createElement("p");
       pagoDetalle.className = "helper-text";
@@ -542,6 +563,14 @@ function renderPedidos() {
       cuponDetalle.innerHTML = `<strong>Cupón aplicado:</strong> ${pedido.cuponCodigo} (−${fmt.format(pedido.descuento)})`;
       detail.appendChild(cuponDetalle);
     }
+    if (pedido.observaciones) {
+      const obsDetalle = document.createElement("p");
+      obsDetalle.className = "helper-text";
+      obsDetalle.style.marginBottom = "10px";
+      obsDetalle.innerHTML = `<strong>Observaciones:</strong> ${pedido.observaciones}`;
+      detail.appendChild(obsDetalle);
+    }
+
     const tabla = document.createElement("table");
     tabla.className = "order-detail-table";
     const thead = document.createElement("thead");
@@ -555,15 +584,45 @@ function renderPedidos() {
     }
     tabla.appendChild(tbody);
     detail.appendChild(tabla);
+
+    // Botones de acción
+    const acciones = document.createElement("div");
+    acciones.style.cssText = "display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;";
+
     const waLink = document.createElement("a");
     waLink.className = "btn btn-secondary";
-    waLink.style.marginTop = "10px";
-    waLink.style.display = "inline-block";
-    waLink.textContent = "Abrir chat de WhatsApp";
+    waLink.textContent = "Abrir WhatsApp";
     waLink.href = `https://wa.me/${pedido.clienteWhatsapp}`;
     waLink.target = "_blank";
     waLink.rel = "noopener";
-    detail.appendChild(waLink);
+    acciones.appendChild(waLink);
+
+    const btnProcesado = document.createElement("button");
+    btnProcesado.type = "button";
+    btnProcesado.className = pedido.procesado ? "btn btn-secondary" : "btn btn-primary";
+    btnProcesado.textContent = pedido.procesado ? "Marcar como pendiente" : "✓ Marcar como procesado";
+    btnProcesado.addEventListener("click", async () => {
+      try {
+        await updateDoc(doc(db, "pedidos", pedido.id), { procesado: !pedido.procesado });
+      } catch (err) { console.error(err); alert("No se pudo actualizar el pedido."); }
+    });
+    acciones.appendChild(btnProcesado);
+
+    const btnEliminar = document.createElement("button");
+    btnEliminar.type = "button";
+    btnEliminar.className = "btn btn-danger";
+    btnEliminar.textContent = "Eliminar";
+    btnEliminar.addEventListener("click", async () => {
+      const nombre = pedido.clienteNombre || "Sin nombre";
+      if (!confirm(`¿Eliminar el pedido de "${nombre}"? Esta acción no se puede deshacer.`)) return;
+      try {
+        await deleteDoc(doc(db, "pedidos", pedido.id));
+      } catch (err) { console.error(err); alert("No se pudo eliminar el pedido."); }
+    });
+    acciones.appendChild(btnEliminar);
+
+    detail.appendChild(acciones);
+
     header.addEventListener("click", () => {
       detail.classList.toggle("hidden");
       chevron.textContent = detail.classList.contains("hidden") ? "▾" : "▴";
@@ -571,6 +630,35 @@ function renderPedidos() {
     card.appendChild(header);
     card.appendChild(detail);
     listaPedidos.appendChild(card);
+  }
+
+  // Paginación
+  if (totalPaginas > 1) {
+    const paginador = document.createElement("div");
+    paginador.className = "order-paginador";
+
+    const btnAnterior = document.createElement("button");
+    btnAnterior.type = "button";
+    btnAnterior.className = "btn btn-secondary";
+    btnAnterior.textContent = "← Anterior";
+    btnAnterior.disabled = paginaActualPedidos === 1;
+    btnAnterior.addEventListener("click", () => { paginaActualPedidos--; renderPedidos(); });
+
+    const infoPagina = document.createElement("span");
+    infoPagina.className = "order-paginador__info";
+    infoPagina.textContent = `Página ${paginaActualPedidos} de ${totalPaginas} (${pedidosFiltrados.length} pedidos)`;
+
+    const btnSiguiente = document.createElement("button");
+    btnSiguiente.type = "button";
+    btnSiguiente.className = "btn btn-secondary";
+    btnSiguiente.textContent = "Siguiente →";
+    btnSiguiente.disabled = paginaActualPedidos === totalPaginas;
+    btnSiguiente.addEventListener("click", () => { paginaActualPedidos++; renderPedidos(); });
+
+    paginador.appendChild(btnAnterior);
+    paginador.appendChild(infoPagina);
+    paginador.appendChild(btnSiguiente);
+    listaPedidos.appendChild(paginador);
   }
 }
 
@@ -745,6 +833,7 @@ onAuthStateChanged(auth, (user) => {
     if (resetCard) resetCard.classList.add("hidden");
     if (adminShell) adminShell.classList.remove("hidden");
     cargarMinimoGeneral();
+    cargarPopup();
 
     if (!suscripcionProductos) {
       const productosQuery = query(collection(db, "productos"), orderBy("categoria"), orderBy("orden"));
@@ -1083,6 +1172,77 @@ if (btnGuardarMinimoGeneral) {
     } catch (err) {
       console.error(err);
       minimoGeneralError.textContent = "No se pudo guardar. Probá de nuevo.";
+    }
+  });
+}
+
+// ============================================================
+// POPUP PROMOCIONAL
+// ============================================================
+
+const btnGuardarPopup = document.getElementById("btn-guardar-popup");
+const popupError = document.getElementById("popup-error");
+const popupOk = document.getElementById("popup-ok");
+const popupImagenActual = document.getElementById("popup-imagen-actual");
+
+async function cargarPopup() {
+  try {
+    const snap = await getDoc(doc(db, "configuracion", "popup"));
+    if (snap.exists()) {
+      const datos = snap.data();
+      const chk = document.getElementById("popup-activo");
+      const seg = document.getElementById("popup-segundos");
+      if (chk) chk.checked = !!datos.activo;
+      if (seg) seg.value = datos.segundos || 8;
+      if (popupImagenActual && datos.imagenUrl) {
+        popupImagenActual.innerHTML = `Imagen actual: <a href="${datos.imagenUrl}" target="_blank" rel="noopener">ver imagen</a>`;
+      }
+    }
+  } catch (err) { console.error("Error cargando popup:", err); }
+}
+
+if (btnGuardarPopup) {
+  btnGuardarPopup.addEventListener("click", async () => {
+    popupError.textContent = "";
+    popupOk.classList.add("hidden");
+
+    const activo = document.getElementById("popup-activo").checked;
+    const segundos = parseInt(document.getElementById("popup-segundos").value) || 8;
+    const archivo = document.getElementById("popup-imagen").files[0];
+
+    btnGuardarPopup.disabled = true;
+    btnGuardarPopup.textContent = "Guardando…";
+
+    try {
+      let imagenUrl = null;
+
+      // Si hay imagen nueva, subirla
+      if (archivo) {
+        const extension = archivo.name.split(".").pop();
+        const storageRef = ref(storage, `configuracion/popup.${extension}`);
+        await uploadBytes(storageRef, archivo);
+        imagenUrl = await getDownloadURL(storageRef);
+      } else {
+        // Mantener la imagen existente
+        const snap = await getDoc(doc(db, "configuracion", "popup"));
+        if (snap.exists()) imagenUrl = snap.data().imagenUrl || null;
+      }
+
+      await setDoc(doc(db, "configuracion", "popup"), { activo, segundos, imagenUrl }, { merge: true });
+
+      if (popupImagenActual && imagenUrl) {
+        popupImagenActual.innerHTML = `Imagen actual: <a href="${imagenUrl}" target="_blank" rel="noopener">ver imagen</a>`;
+      }
+
+      popupOk.classList.remove("hidden");
+      setTimeout(() => popupOk.classList.add("hidden"), 3000);
+      document.getElementById("popup-imagen").value = "";
+    } catch (err) {
+      console.error(err);
+      popupError.textContent = "No se pudo guardar. Probá de nuevo.";
+    } finally {
+      btnGuardarPopup.disabled = false;
+      btnGuardarPopup.textContent = "Guardar popup";
     }
   });
 }
