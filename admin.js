@@ -214,6 +214,7 @@ formNuevo.addEventListener("submit", async (e) => {
   const enStock = document.getElementById("n-stock").checked;
   const promo = document.getElementById("n-promo").checked;
   const fraccionable = document.getElementById("n-fraccionable")?.checked || false;
+  const destacado = document.getElementById("n-destacado")?.checked || false;
   const minimoCompraRaw = document.getElementById("n-minimo-compra").value;
   const minimoCompra = minimoCompraRaw !== "" ? parseFloat(minimoCompraRaw) : null;
   const preciosVolumen = leerEscalonesVolumen("n-volumen-filas");
@@ -224,7 +225,7 @@ formNuevo.addEventListener("submit", async (e) => {
   const archivo = document.getElementById("n-imagen").files[0];
   try {
     const docRef = await addDoc(collection(db, "productos"), {
-      nombre, codigo, categoria, precio, orden, enStock, promo, fraccionable, minimoCompra,
+      nombre, codigo, categoria, precio, orden, enStock, promo, fraccionable, destacado, minimoCompra,
       preciosVolumen,
       precioPromo: promo ? precioPromo : null,
       promoTexto: promo ? promoTexto : "",
@@ -318,6 +319,12 @@ function renderLista(productosARenderizar = productosCache) {
     info.appendChild(meta);
 
     const tags = document.createElement("p");
+    if (p.destacado) {
+      const t = document.createElement("span");
+      t.className = "tag tag--destacado";
+      t.textContent = "⭐ Destacado";
+      tags.appendChild(t);
+    }
     if (p.fraccionable) {
       const t = document.createElement("span");
       t.className = "tag tag--promo";
@@ -380,6 +387,8 @@ function abrirModalEditar(p) {
   document.getElementById("e-imagen").value = "";
   const eFraccionable = document.getElementById("e-fraccionable");
   if (eFraccionable) eFraccionable.checked = !!p.fraccionable;
+  const eDestacado = document.getElementById("e-destacado");
+  if (eDestacado) eDestacado.checked = !!p.destacado;
   const eMinimoCompra = document.getElementById("e-minimo-compra");
   if (eMinimoCompra) eMinimoCompra.value = p.minimoCompra != null ? p.minimoCompra : "";
   cargarEscalonesVolumen("e-volumen-filas", p.preciosVolumen || []);
@@ -398,6 +407,7 @@ formEditar.addEventListener("submit", async (e) => {
   const id = document.getElementById("e-id").value;
   const promo = document.getElementById("e-promo").checked;
   const fraccionable = document.getElementById("e-fraccionable")?.checked || false;
+  const destacado = document.getElementById("e-destacado")?.checked || false;
   const minimoCompraRawE = document.getElementById("e-minimo-compra").value;
   const minimoCompra = minimoCompraRawE !== "" ? parseFloat(minimoCompraRawE) : null;
   const preciosVolumen = leerEscalonesVolumen("e-volumen-filas");
@@ -408,7 +418,7 @@ formEditar.addEventListener("submit", async (e) => {
     precio: parseFloat(document.getElementById("e-precio").value),
     orden: parseInt(document.getElementById("e-orden").value, 10) || 0,
     enStock: document.getElementById("e-stock").checked,
-    promo, fraccionable, minimoCompra, preciosVolumen,
+    promo, fraccionable, destacado, minimoCompra, preciosVolumen,
     precioPromo: promo ? parseFloat(document.getElementById("e-precio-promo").value) || null : null,
     promoTexto: promo ? document.getElementById("e-promo-texto").value.trim() : "",
   };
