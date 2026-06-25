@@ -211,6 +211,25 @@
           </div>
 
           <div class="field">
+            <label>Precios por volumen (opcional)</label>
+            <p class="helper-text">Definí hasta 3 escalones: cantidad mínima y precio para esa cantidad.</p>
+            <div class="precio-volumen-filas" id="n-volumen-filas">
+              <div class="precio-volumen-fila">
+                <input type="number" class="pv-cantidad" min="1" step="1" placeholder="Cant. mín." />
+                <input type="number" class="pv-precio" min="0" step="0.01" placeholder="Precio c/u" />
+              </div>
+              <div class="precio-volumen-fila">
+                <input type="number" class="pv-cantidad" min="1" step="1" placeholder="Cant. mín." />
+                <input type="number" class="pv-precio" min="0" step="0.01" placeholder="Precio c/u" />
+              </div>
+              <div class="precio-volumen-fila">
+                <input type="number" class="pv-cantidad" min="1" step="1" placeholder="Cant. mín." />
+                <input type="number" class="pv-precio" min="0" step="0.01" placeholder="Precio c/u" />
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
             <label for="n-imagen">Foto del producto</label>
             <input type="file" id="n-imagen" accept="image/*" />
           </div>
@@ -483,6 +502,25 @@
         <div class="field">
           <label for="e-minimo-compra">Mínimo de compra por producto (opcional)</label>
           <input type="number" id="e-minimo-compra" min="0" step="0.5" placeholder="Sin mínimo si se deja vacío" />
+        </div>
+
+        <div class="field">
+          <label>Precios por volumen (opcional)</label>
+          <p class="helper-text">Definí hasta 3 escalones: cantidad mínima y precio para esa cantidad.</p>
+          <div class="precio-volumen-filas" id="e-volumen-filas">
+            <div class="precio-volumen-fila">
+              <input type="number" class="pv-cantidad" min="1" step="1" placeholder="Cant. mín." />
+              <input type="number" class="pv-precio" min="0" step="0.01" placeholder="Precio c/u" />
+            </div>
+            <div class="precio-volumen-fila">
+              <input type="number" class="pv-cantidad" min="1" step="1" placeholder="Cant. mín." />
+              <input type="number" class="pv-precio" min="0" step="0.01" placeholder="Precio c/u" />
+            </div>
+            <div class="precio-volumen-fila">
+              <input type="number" class="pv-cantidad" min="1" step="1" placeholder="Cant. mín." />
+              <input type="number" class="pv-precio" min="0" step="0.01" placeholder="Precio c/u" />
+            </div>
+          </div>
         </div>
 
         <div class="field">
