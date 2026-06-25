@@ -317,10 +317,17 @@ if (elFormDatosCliente) {
     const items = Object.entries(carrito).map(([id, it]) => ({ productoId: id, nombre: it.nombre, cantidad: it.cantidad, precioUnitario: it.precioUnitario, subtotal: it.precioUnitario * it.cantidad }));
     const descuento = calcularDescuento();
 
-    // Abrimos la ventana ANTES del await para que Safari no la bloquee como popup
+    // Detectar plataforma
+    const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const esAndroid = /android/i.test(navigator.userAgent);
     const linkWA = mensajeWhatsAppCarrito(nombreCliente, formaPago, observaciones);
-    const ventanaWA = window.open("", "_blank");
-    if (ventanaWA) ventanaWA.location.href = linkWA;
+
+    // En iOS abrimos ventana ANTES del await para evitar bloqueo de popup en Safari
+    let ventanaWA = null;
+    if (esIOS) {
+      ventanaWA = window.open("", "_blank");
+      if (ventanaWA) ventanaWA.location.href = linkWA;
+    }
 
     elBtnConfirmarPedido.disabled = true; elBtnConfirmarPedido.textContent = "Enviando…";
     try {
@@ -330,10 +337,22 @@ if (elFormDatosCliente) {
         descuento, total: totalConDescuento(), observaciones: observaciones || "",
         creadoEn: serverTimestamp(),
       });
-      // Si el navegador bloqueó la ventana, usamos location.href como fallback
-      if (!ventanaWA || ventanaWA.closed) {
+
+      if (esAndroid) {
+        // Android: usar esquema nativo whatsapp:// para abrir directo sin pasar por Play Store
+        const numero = linkWA.match(/wa\.me\/(\d+)/)?.[1] || "";
+        const mensaje = decodeURIComponent(linkWA.split("?text=")[1] || "");
+        window.location.href = `whatsapp://send?phone=${numero}&text=${encodeURIComponent(mensaje)}`;
+        // Si no abre en 1.5s (WhatsApp no instalado), ir a wa.me
+        setTimeout(() => { window.location.href = linkWA; }, 1500);
+      } else if (!esIOS) {
+        // Desktop u otros: abrir normalmente
+        window.open(linkWA, "_blank", "noopener");
+      } else if (!ventanaWA || ventanaWA.closed) {
+        // iOS fallback si el popup fue bloqueado
         window.location.href = linkWA;
       }
+
       vaciarCarrito(); elFormDatosCliente.reset(); elCartBackdrop.classList.add("hidden"); mostrarVistaItems();
     } catch (err) {
       console.error(err); elDatosClienteError.textContent = "No se pudo registrar el pedido. Probá de nuevo en unos segundos.";
@@ -486,8 +505,22 @@ function renderCatalogo(productos) {
   }
 }
 
+// Devuelve el precio aplicable según la cantidad y los escalones
+function precioSegunVolumen(p, cantidad) {
+  if (!p.preciosVolumen || p.preciosVolumen.length === 0) {
+    return p.promo && p.precioPromo != null ? p.precioPromo : p.precio || 0;
+  }
+  // Ordenar escalones de mayor a menor para encontrar el primero que aplica
+  const escalones = [...p.preciosVolumen].sort((a, b) => b.cantidad - a.cantidad);
+  for (const escalon of escalones) {
+    if (cantidad >= escalon.cantidad) return escalon.precio;
+  }
+  // Si no alcanza ningún escalón, usar precio base
+  return p.promo && p.precioPromo != null ? p.precioPromo : p.precio || 0;
+}
+
 function renderCard(p) {
-  const precioMostrar = p.promo && p.precioPromo != null ? p.precioPromo : p.precio || 0;
+  const precioBase = p.promo && p.precioPromo != null ? p.precioPromo : p.precio || 0;
   const card = document.createElement("article"); card.className = "product-card";
   if (p.enStock === false) card.classList.add("product-card--soldout");
   const imgWrap = document.createElement("div"); imgWrap.className = "product-card__img-wrap";
@@ -500,25 +533,45 @@ function renderCard(p) {
   const name = document.createElement("h3"); name.className = "product-card__name"; name.textContent = p.nombre; metaWrap.appendChild(name);
   const priceRow = document.createElement("div"); priceRow.className = "product-card__price-row";
   if (p.promo && p.precioPromo != null && p.enStock !== false) { const oldPrice = document.createElement("span"); oldPrice.className = "product-card__price--old"; oldPrice.textContent = fmt.format(p.precio); priceRow.appendChild(oldPrice); }
-  const priceEl = document.createElement("span"); priceEl.className = "product-card__price"; priceEl.textContent = fmt.format(precioMostrar); priceRow.appendChild(priceEl);
+  const priceEl = document.createElement("span"); priceEl.className = "product-card__price"; priceEl.textContent = fmt.format(precioBase); priceRow.appendChild(priceEl);
   metaWrap.appendChild(priceRow); body.appendChild(metaWrap);
   if (p.promo && p.promoTexto && p.enStock !== false) { const promoText = document.createElement("p"); promoText.className = "product-card__promo-text"; promoText.textContent = p.promoTexto; metaWrap.appendChild(promoText); }
   if (p.fraccionable && p.enStock !== false) { const aviso = document.createElement("p"); aviso.className = "product-card__fraccionable-text"; aviso.textContent = "Se puede pedir por mitad (ej: 2 y media)"; metaWrap.appendChild(aviso); }
+
+  // Tabla de precios por volumen
+  if (p.preciosVolumen && p.preciosVolumen.length > 0 && p.enStock !== false) {
+    const tabla = document.createElement("div");
+    tabla.className = "volumen-tabla";
+    const escalones = [...p.preciosVolumen].sort((a, b) => a.cantidad - b.cantidad);
+    escalones.forEach((esc, idx) => {
+      const siguiente = escalones[idx + 1];
+      const fila = document.createElement("div");
+      fila.className = "volumen-tabla__fila";
+      fila.dataset.cantidad = esc.cantidad;
+      const rango = siguiente
+        ? `${esc.cantidad}–${siguiente.cantidad - 1} unid.`
+        : `${esc.cantidad}+ unid.`;
+      fila.innerHTML = `<span>${rango}</span><span>${fmt.format(esc.precio)} c/u</span>`;
+      tabla.appendChild(fila);
+    });
+    metaWrap.appendChild(tabla);
+  }
+
   if (p.enStock === false) {
     const badge = document.createElement("span"); badge.className = "product-card__stock-badge"; badge.textContent = "Sin stock"; body.appendChild(badge);
     const btn = document.createElement("button"); btn.type = "button"; btn.className = "btn-order btn-order--disabled"; btn.textContent = "No disponible"; btn.disabled = true; body.appendChild(btn);
   } else {
     const controls = document.createElement("div"); controls.className = "product-card__controls";
 
-    // Aviso de mínimo si existe
     if (p.minimoCompra != null && p.minimoCompra > 0) {
       const avisoMin = document.createElement("p");
       avisoMin.className = "product-card__minimo-texto";
-      avisoMin.textContent = `Mín. ${fmtCantidad(p.minimoCompra)} ${p.fraccionable ? "unid." : p.minimoCompra === 1 ? "unid." : "unid."}`;
+      avisoMin.textContent = `Mín. ${fmtCantidad(p.minimoCompra)} unid.`;
       controls.appendChild(avisoMin);
     }
 
-    actualizarControlesCard(controls, p);
+    // Referencia al elemento de precio para actualizarlo dinámicamente
+    actualizarControlesCard(controls, p, priceEl);
     body.appendChild(controls);
   }
   card.appendChild(body);
@@ -526,12 +579,27 @@ function renderCard(p) {
 }
 
 // Actualiza los controles de una tarjeta según si el producto ya está o no en el carrito
-function actualizarControlesCard(controls, p) {
+function actualizarControlesCard(controls, p, priceEl) {
   controls.innerHTML = "";
-  // Registrar esta función para que pueda ser llamada cuando cambia el carrito externamente
-  tarjetasRegistradas.set(p.id, () => actualizarControlesCard(controls, p));
+  tarjetasRegistradas.set(p.id, () => actualizarControlesCard(controls, p, priceEl));
 
   const enCarrito = carrito[p.id];
+
+  function resaltarFilaVolumen(cantidad) {
+    if (!p.preciosVolumen || p.preciosVolumen.length === 0) return;
+    const card = controls.closest(".product-card");
+    if (!card) return;
+    const filas = card.querySelectorAll(".volumen-tabla__fila");
+    let filaActiva = null;
+    const escalones = [...p.preciosVolumen].sort((a, b) => b.cantidad - a.cantidad);
+    for (const esc of escalones) {
+      if (cantidad >= esc.cantidad) { filaActiva = esc.cantidad; break; }
+    }
+    filas.forEach((fila) => {
+      fila.classList.toggle("volumen-tabla__fila--activa", parseInt(fila.dataset.cantidad) === filaActiva);
+    });
+    if (priceEl) priceEl.textContent = fmt.format(precioSegunVolumen(p, cantidad));
+  }
 
   if (enCarrito) {
     const label = document.createElement("span");
@@ -539,28 +607,25 @@ function actualizarControlesCard(controls, p) {
     label.textContent = "✓ En carrito";
     controls.appendChild(label);
 
-    // Stepper arranca en la cantidad actual, pero NO modifica el carrito hasta que se toca Modificar
     const stepperMod = crearStepper(enCarrito.cantidad, null, p.fraccionable ? 0.5 : 1);
     controls.appendChild(stepperMod);
+    resaltarFilaVolumen(enCarrito.cantidad);
 
     const btnModificar = document.createElement("button");
     btnModificar.type = "button";
     btnModificar.className = "btn-add btn-add--modificar";
     btnModificar.textContent = "Modificar";
     btnModificar.addEventListener("click", () => {
-      const nuevaCantidad = parseFloat(
-        stepperMod.querySelector(".qty-stepper__value").textContent.replace(",", ".")
-      );
+      const nuevaCantidad = parseFloat(stepperMod.querySelector(".qty-stepper__value").textContent.replace(",", "."));
       if (nuevaCantidad <= 0) {
         quitarDelCarrito(p.id);
       } else {
+        if (carrito[p.id]) carrito[p.id].precioUnitario = precioSegunVolumen(p, nuevaCantidad);
         cambiarCantidadCarrito(p.id, nuevaCantidad);
       }
-      actualizarControlesCard(controls, p);
-
-      // Feedback visual breve
+      actualizarControlesCard(controls, p, priceEl);
       btnModificar.textContent = "✓ Listo";
-      setTimeout(() => actualizarControlesCard(controls, p), 800);
+      setTimeout(() => actualizarControlesCard(controls, p, priceEl), 800);
     });
     controls.appendChild(btnModificar);
 
@@ -570,24 +635,23 @@ function actualizarControlesCard(controls, p) {
     btnQuitar.textContent = "Quitar";
     btnQuitar.addEventListener("click", () => {
       quitarDelCarrito(p.id);
-      actualizarControlesCard(controls, p);
+      actualizarControlesCard(controls, p, priceEl);
     });
     controls.appendChild(btnQuitar);
   } else {
     const minimo = (p.minimoCompra != null && p.minimoCompra > 0) ? p.minimoCompra : (p.fraccionable ? 0.5 : 1);
     const stepper = crearStepper(minimo, null, p.fraccionable ? 0.5 : 1);
     controls.appendChild(stepper);
+    resaltarFilaVolumen(minimo);
 
     const btnAgregar = document.createElement("button");
     btnAgregar.type = "button";
     btnAgregar.className = "btn-add";
     btnAgregar.textContent = "Agregar";
 
-    // Verificar si la cantidad actual del stepper cumple el mínimo
     function verificarMinimo() {
-      const cantidadActual = parseFloat(
-        stepper.querySelector(".qty-stepper__value").textContent.replace(",", ".")
-      );
+      const cantidadActual = parseFloat(stepper.querySelector(".qty-stepper__value").textContent.replace(",", "."));
+      resaltarFilaVolumen(cantidadActual);
       if (p.minimoCompra != null && p.minimoCompra > 0 && cantidadActual < p.minimoCompra) {
         btnAgregar.disabled = true;
         btnAgregar.style.opacity = "0.5";
@@ -599,15 +663,17 @@ function actualizarControlesCard(controls, p) {
       }
     }
 
-    // Escuchar cambios en el stepper para actualizar el estado del botón
     stepper.querySelector(".qty-stepper button:first-child").addEventListener("click", verificarMinimo);
     stepper.querySelector(".qty-stepper button:last-child").addEventListener("click", verificarMinimo);
     verificarMinimo();
 
     btnAgregar.addEventListener("click", () => {
       const cantidad = parseFloat(stepper.querySelector(".qty-stepper__value").textContent.replace(",", "."));
+      const precioUnitario = precioSegunVolumen(p, cantidad);
       agregarAlCarrito(p, cantidad);
-      actualizarControlesCard(controls, p);
+      if (carrito[p.id]) carrito[p.id].precioUnitario = precioUnitario;
+      guardarCarrito();
+      actualizarControlesCard(controls, p, priceEl);
     });
     controls.appendChild(btnAgregar);
   }
