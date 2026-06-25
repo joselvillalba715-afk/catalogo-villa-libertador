@@ -490,3 +490,111 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 20px 100px; }
   margin: 0;
   width: 100%;
 }
+
+/* ---------- Pedidos: procesado, paginación ---------- */
+
+.order-card--procesado {
+  opacity: 0.65;
+  border-color: #b8d4b8;
+}
+
+.order-card--procesado .order-card__header {
+  background: #f3faf1;
+}
+
+.tag--procesado {
+  background: #e3f2e1;
+  color: #2d7a4f;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.order-paginador {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.order-paginador__info {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+/* ============================================================
+   POPUP PROMOCIONAL
+   ============================================================ */
+
+.promo-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.promo-popup {
+  position: relative;
+  max-width: 480px;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+  animation: popupEntrada 0.3s ease;
+}
+
+@keyframes popupEntrada {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.promo-popup__img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.promo-popup__cerrar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  line-height: 1;
+}
+
+.promo-popup__cerrar:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.promo-popup__barra-timer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  width: 100%;
+  background: var(--primary);
+  z-index: 2;
+}
