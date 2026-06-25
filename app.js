@@ -140,6 +140,94 @@ onSnapshot(doc(db, "configuracion", "catalogo"), (snap) => {
 });
 
 // ============================================================
+// CARRUSEL DE PRODUCTOS DESTACADOS
+// ============================================================
+let carruselTimer = null;
+let carruselIndex = 0;
+
+function renderCarrusel(productos) {
+  const wrap = document.getElementById("destacados-wrap");
+  const track = document.getElementById("destacados-track");
+  if (!wrap || !track) return;
+
+  const destacados = productos.filter((p) => p.destacado && p.enStock !== false);
+
+  if (destacados.length === 0) {
+    wrap.classList.add("hidden");
+    if (carruselTimer) clearInterval(carruselTimer);
+    return;
+  }
+
+  wrap.classList.remove("hidden");
+  track.innerHTML = "";
+
+  // Duplicar para scroll infinito suave
+  const todos = [...destacados, ...destacados];
+  todos.forEach((p) => {
+    const precioMostrar = p.promo && p.precioPromo != null ? p.precioPromo : p.precio || 0;
+    const card = document.createElement("div");
+    card.className = "destacado-card";
+    card.addEventListener("click", () => {
+      // Scrollear al producto en el catálogo
+      const seccion = document.getElementById(`cat-${slugify(p.categoria || "otros")}`);
+      if (seccion) seccion.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    const img = document.createElement("div");
+    img.className = "destacado-card__img";
+    if (p.imagenUrl) {
+      const imgEl = document.createElement("img");
+      imgEl.src = p.imagenUrl;
+      imgEl.alt = p.nombre;
+      imgEl.loading = "lazy";
+      img.appendChild(imgEl);
+    } else {
+      img.textContent = "📦";
+      img.style.display = "flex";
+      img.style.alignItems = "center";
+      img.style.justifyContent = "center";
+      img.style.fontSize = "1.5rem";
+    }
+    card.appendChild(img);
+
+    const info = document.createElement("div");
+    info.className = "destacado-card__info";
+
+    const nombre = document.createElement("p");
+    nombre.className = "destacado-card__nombre";
+    nombre.textContent = p.nombre;
+    info.appendChild(nombre);
+
+    const precio = document.createElement("p");
+    precio.className = "destacado-card__precio";
+    precio.textContent = fmt.format(precioMostrar);
+    info.appendChild(precio);
+
+    if (p.promo && p.promoTexto) {
+      const promo = document.createElement("p");
+      promo.className = "destacado-card__promo";
+      promo.textContent = p.promoTexto;
+      info.appendChild(promo);
+    }
+
+    card.appendChild(info);
+    track.appendChild(card);
+  });
+
+  // Auto-scroll suave
+  if (carruselTimer) clearInterval(carruselTimer);
+  let pos = 0;
+  const cardWidth = 160 + 12; // ancho + gap
+  const totalWidth = destacados.length * cardWidth;
+
+  carruselTimer = setInterval(() => {
+    pos += 1;
+    if (pos >= totalWidth) pos = 0;
+    track.style.transform = `translateX(-${pos}px)`;
+  }, 20);
+}
+
+// ============================================================
 // CUPONES
 // ============================================================
 let todosLosCupones = [];
@@ -703,6 +791,7 @@ onSnapshot(productosQuery, (snapshot) => {
   todosLosProductos = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   if (elEstado) elEstado.classList.add("hidden");
   renderNavCategorias(todosLosProductos);
+  renderCarrusel(todosLosProductos);
   aplicarFiltros();
 }, (error) => {
   console.error(error);
