@@ -232,6 +232,27 @@
         <p class="error-text" id="csv-error"></p>
       </div>
 
+      <div class="panel" id="panel-popup-promo">
+        <h2>Popup promocional</h2>
+        <p class="helper-text">Imagen que aparece al abrir el catálogo. Se cierra automáticamente o con la X.</p>
+        <div class="checkbox-field">
+          <input type="checkbox" id="popup-activo" />
+          <label for="popup-activo">Popup activo</label>
+        </div>
+        <div class="field">
+          <label for="popup-segundos">Duración en segundos (antes de cerrarse solo)</label>
+          <input type="number" id="popup-segundos" min="3" max="30" step="1" value="8" />
+        </div>
+        <div class="field">
+          <label for="popup-imagen">Imagen del popup</label>
+          <input type="file" id="popup-imagen" accept="image/*" />
+          <p class="helper-text" id="popup-imagen-actual" style="margin-top:6px;"></p>
+        </div>
+        <button type="button" class="btn btn-primary" id="btn-guardar-popup">Guardar popup</button>
+        <p class="error-text" id="popup-error"></p>
+        <p class="helper-text hidden" id="popup-ok" style="color: #2d7a4f; margin-top: 8px;">✓ Guardado correctamente.</p>
+      </div>
+
       <div class="panel" id="panel-minimo-general">
         <h2>Mínimo de compra general</h2>
         <p class="helper-text">Si se configura, el botón "Continuar pedido" queda bloqueado hasta que el total del carrito supere este monto.</p>
