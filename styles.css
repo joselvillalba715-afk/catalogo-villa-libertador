@@ -605,20 +605,23 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 20px 100px; }
 
 .volumen-tabla {
   width: 100%;
-  margin-top: 6px;
-  border: 1px solid var(--border);
+  margin-top: 8px;
   border-radius: 8px;
   overflow: hidden;
-  font-size: 0.75rem;
+  border: 1.5px solid #e6c14a;
+  background: #fffbe6;
+  box-shadow: 0 2px 6px rgba(242, 193, 78, 0.2);
 }
 
 .volumen-tabla__fila {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
-  color: var(--ink-soft);
+  padding: 5px 9px;
+  border-bottom: 1px solid #f0d97a;
+  color: #7a5c00;
+  font-size: 0.72rem;
+  font-weight: 600;
   transition: background 0.15s;
 }
 
@@ -626,10 +629,24 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 20px 100px; }
   border-bottom: none;
 }
 
+.volumen-tabla__fila::before {
+  content: "🏷️";
+  font-size: 0.65rem;
+  margin-right: 4px;
+  opacity: 0.8;
+}
+
 .volumen-tabla__fila--activa {
-  background: #e3f2e1;
-  color: #2d7a4f;
-  font-weight: 700;
+  background: #f2c14e;
+  color: #3a2800;
+  font-weight: 800;
+}
+
+.volumen-tabla__fila--activa::before {
+  content: "✓";
+  font-size: 0.75rem;
+  font-weight: 900;
+  opacity: 1;
 }
 
 /* Estilos en admin para los campos de precios por volumen */
