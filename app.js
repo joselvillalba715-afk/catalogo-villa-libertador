@@ -523,24 +523,7 @@ if (elCartBackdrop) { elCartBackdrop.addEventListener("click", (e) => { if (e.ta
 
 actualizarBadge();
 
-// ============================================================
-// COMPARTIR CATÁLOGO POR WHATSAPP
-// ============================================================
-const shareFloat = document.getElementById("share-float");
-if (shareFloat) {
-  shareFloat.addEventListener("click", () => {
-    const urlCatalogo = "https://catalogo.distvillalibertador.com.ar";
-    const mensaje = `¡Hola! Te comparto el catálogo de *${BUSINESS_NAME}* con todos nuestros productos y precios actualizados:\n\n${urlCatalogo}`;
-    const linkWA = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
-    const esAndroid = /android/i.test(navigator.userAgent);
-    if (esAndroid) {
-      window.location.href = `whatsapp://send?text=${encodeURIComponent(mensaje)}`;
-      setTimeout(() => { window.location.href = linkWA; }, 1500);
-    } else {
-      window.open(linkWA, "_blank", "noopener");
-    }
-  });
-}
+
 
 // ============================================================
 // STEPPER
@@ -640,6 +623,16 @@ function renderCard(p) {
   const name = document.createElement("h3"); name.className = "product-card__name"; name.textContent = p.nombre; metaWrap.appendChild(name);
   const priceRow = document.createElement("div"); priceRow.className = "product-card__price-row";
   if (p.promo && p.precioPromo != null && p.enStock !== false) { const oldPrice = document.createElement("span"); oldPrice.className = "product-card__price--old"; oldPrice.textContent = fmt.format(p.precio); priceRow.appendChild(oldPrice); }
+  // Si tiene escalones de volumen, mostrar precio base tachado cuando el escalón da un precio menor
+  const precioMinimoVolumen = p.preciosVolumen && p.preciosVolumen.length > 0
+    ? Math.min(...p.preciosVolumen.map(e => e.precio))
+    : null;
+  if (precioMinimoVolumen != null && precioMinimoVolumen < precioBase && !p.promo) {
+    const oldPriceVol = document.createElement("span");
+    oldPriceVol.className = "product-card__price--old";
+    oldPriceVol.textContent = fmt.format(precioBase);
+    priceRow.appendChild(oldPriceVol);
+  }
   const priceEl = document.createElement("span"); priceEl.className = "product-card__price"; priceEl.textContent = fmt.format(precioBase); priceRow.appendChild(priceEl);
   metaWrap.appendChild(priceRow); body.appendChild(metaWrap);
   if (p.promo && p.promoTexto && p.enStock !== false) { const promoText = document.createElement("p"); promoText.className = "product-card__promo-text"; promoText.textContent = p.promoTexto; metaWrap.appendChild(promoText); }
@@ -705,7 +698,16 @@ function actualizarControlesCard(controls, p, priceEl) {
     filas.forEach((fila) => {
       fila.classList.toggle("volumen-tabla__fila--activa", parseInt(fila.dataset.cantidad) === filaActiva);
     });
-    if (priceEl) priceEl.textContent = fmt.format(precioSegunVolumen(p, cantidad));
+    const precioActual = precioSegunVolumen(p, cantidad);
+    if (priceEl) priceEl.textContent = fmt.format(precioActual);
+    // Mostrar/ocultar precio tachado según si el escalón da descuento sobre el precio base
+    const precioBase = p.promo && p.precioPromo != null ? p.precioPromo : p.precio || 0;
+    const oldPriceEl = priceEl?.parentElement?.querySelector(".product-card__price--old:last-of-type");
+    if (oldPriceEl && precioActual < precioBase) {
+      oldPriceEl.style.display = "";
+    } else if (oldPriceEl) {
+      oldPriceEl.style.display = "none";
+    }
   }
 
   if (enCarrito) {
@@ -777,9 +779,9 @@ function actualizarControlesCard(controls, p, priceEl) {
     btnAgregar.addEventListener("click", () => {
       const cantidad = parseFloat(stepper.querySelector(".qty-stepper__value").textContent.replace(",", "."));
       const precioUnitario = precioSegunVolumen(p, cantidad);
-      agregarAlCarrito(p, cantidad);
-      if (carrito[p.id]) carrito[p.id].precioUnitario = precioUnitario;
-      guardarCarrito();
+      // Pasar precio ya calculado para evitar que agregarAlCarrito use el precio base
+      const pConPrecioVolumen = { ...p, precio: precioUnitario, promo: false, precioPromo: null };
+      agregarAlCarrito(pConPrecioVolumen, cantidad);
       actualizarControlesCard(controls, p, priceEl);
     });
     controls.appendChild(btnAgregar);
