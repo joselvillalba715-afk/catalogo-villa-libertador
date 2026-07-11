@@ -468,7 +468,16 @@ function renderCarrito() {
     const info = document.createElement("div"); info.className = "cart-item__info";
     const name = document.createElement("p"); name.className = "cart-item__name"; name.textContent = it.nombre; info.appendChild(name);
     const price = document.createElement("p"); price.className = "cart-item__price"; price.textContent = `${fmt.format(it.precioUnitario)} c/u`; info.appendChild(price);
-    info.appendChild(crearStepper(it.cantidad, (nuevaCantidad) => cambiarCantidadCarrito(id, nuevaCantidad), it.fraccionable ? 0.5 : 1));
+    info.appendChild(crearStepper(it.cantidad, (nuevaCantidad) => {
+      // Recalcular precio por volumen si el producto tiene escalones
+      const productoCompleto = todosLosProductos.find((p) => p.id === id);
+      if (productoCompleto && productoCompleto.preciosVolumen && productoCompleto.preciosVolumen.length > 0) {
+        const nuevoPrecio = precioSegunVolumen(productoCompleto, nuevaCantidad);
+        if (carrito[id]) carrito[id].precioUnitario = nuevoPrecio;
+        guardarCarrito();
+      }
+      cambiarCantidadCarrito(id, nuevaCantidad);
+    }, it.fraccionable ? 0.5 : 1));
     row.appendChild(info);
     const right = document.createElement("div"); right.className = "cart-item__right";
     const subtotal = document.createElement("span"); subtotal.className = "cart-item__subtotal"; subtotal.textContent = fmt.format(it.precioUnitario * it.cantidad); right.appendChild(subtotal);
