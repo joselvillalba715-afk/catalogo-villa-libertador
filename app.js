@@ -526,7 +526,31 @@ function renderCarrito() {
   const btnVaciar = document.createElement("button"); btnVaciar.type = "button"; btnVaciar.className = "btn btn-secondary btn-block"; btnVaciar.textContent = "Vaciar pedido"; btnVaciar.addEventListener("click", vaciarCarrito); elCartFooter.appendChild(btnVaciar);
 }
 
-if (elCartFloat) { elCartFloat.addEventListener("click", () => { renderCarrito(); mostrarVistaItems(); elCartBackdrop.classList.remove("hidden"); }); }
+// Refresca los precios del carrito contra los precios actuales del catálogo
+function refrescarPreciosCarrito() {
+  let huboCambio = false;
+  for (const [id, item] of Object.entries(carrito)) {
+    const productoActual = todosLosProductos.find((p) => p.id === id);
+    if (!productoActual) continue;
+
+    // Precio actual según volumen o precio base
+    const precioActual = (productoActual.preciosVolumen && productoActual.preciosVolumen.length > 0)
+      ? precioSegunVolumen(productoActual, item.cantidad)
+      : (productoActual.promo && productoActual.precioPromo != null
+          ? productoActual.precioPromo
+          : productoActual.precio || 0);
+
+    if (precioActual !== item.precioUnitario) {
+      carrito[id].precioUnitario = precioActual;
+      huboCambio = true;
+    }
+  }
+  if (huboCambio) {
+    guardarCarrito();
+  }
+}
+
+if (elCartFloat) { elCartFloat.addEventListener("click", () => { refrescarPreciosCarrito(); renderCarrito(); mostrarVistaItems(); elCartBackdrop.classList.remove("hidden"); }); }
 if (elCartClose) { elCartClose.addEventListener("click", () => { elCartBackdrop.classList.add("hidden"); }); }
 if (elCartBackdrop) { elCartBackdrop.addEventListener("click", (e) => { if (e.target === elCartBackdrop) elCartBackdrop.classList.add("hidden"); }); }
 
