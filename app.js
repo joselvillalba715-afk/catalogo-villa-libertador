@@ -468,16 +468,25 @@ function renderCarrito() {
     const info = document.createElement("div"); info.className = "cart-item__info";
     const name = document.createElement("p"); name.className = "cart-item__name"; name.textContent = it.nombre; info.appendChild(name);
     const price = document.createElement("p"); price.className = "cart-item__price"; price.textContent = `${fmt.format(it.precioUnitario)} c/u`; info.appendChild(price);
+
+    // Obtener mínimo del producto para respetarlo en el carrito
+    const productoCompleto = todosLosProductos.find((p) => p.id === id);
+    const minimoProducto = (productoCompleto?.minimoCompra != null && productoCompleto.minimoCompra > 0)
+      ? productoCompleto.minimoCompra
+      : (it.fraccionable ? 0.5 : 1);
+    const pasoProducto = it.fraccionable ? 0.5 : 1;
+
     info.appendChild(crearStepper(it.cantidad, (nuevaCantidad) => {
+      // Respetar el mínimo — no permitir bajar de él
+      const cantidadFinal = Math.max(minimoProducto, nuevaCantidad);
       // Recalcular precio por volumen si el producto tiene escalones
-      const productoCompleto = todosLosProductos.find((p) => p.id === id);
       if (productoCompleto && productoCompleto.preciosVolumen && productoCompleto.preciosVolumen.length > 0) {
-        const nuevoPrecio = precioSegunVolumen(productoCompleto, nuevaCantidad);
+        const nuevoPrecio = precioSegunVolumen(productoCompleto, cantidadFinal);
         if (carrito[id]) carrito[id].precioUnitario = nuevoPrecio;
         guardarCarrito();
       }
-      cambiarCantidadCarrito(id, nuevaCantidad);
-    }, it.fraccionable ? 0.5 : 1));
+      cambiarCantidadCarrito(id, cantidadFinal);
+    }, pasoProducto, minimoProducto));
     row.appendChild(info);
     const right = document.createElement("div"); right.className = "cart-item__right";
     const subtotal = document.createElement("span"); subtotal.className = "cart-item__subtotal"; subtotal.textContent = fmt.format(it.precioUnitario * it.cantidad); right.appendChild(subtotal);
@@ -561,9 +570,9 @@ actualizarBadge();
 // ============================================================
 // STEPPER
 // ============================================================
-function crearStepper(valorInicial, onChange, paso = 1) {
+function crearStepper(valorInicial, onChange, paso = 1, minimoVal = null) {
   const wrap = document.createElement("div"); wrap.className = "qty-stepper";
-  const minimo = paso < 1 ? paso : 1;
+  const minimo = minimoVal !== null ? minimoVal : (paso < 1 ? paso : 1);
   let valor = valorInicial;
   const btnMenos = document.createElement("button"); btnMenos.type = "button"; btnMenos.textContent = "−"; btnMenos.setAttribute("aria-label", "Restar");
   const valorEl = document.createElement("span"); valorEl.className = "qty-stepper__value"; valorEl.textContent = fmtCantidad(valor);
