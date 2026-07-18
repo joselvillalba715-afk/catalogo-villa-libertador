@@ -268,9 +268,13 @@ function actualizarListaCategorias() {
 
 function aplicarFiltroAdmin() {
   const textoBusqueda = elAdminBuscador ? normalizarTexto(elAdminBuscador.value.trim()) : "";
+  const soloSinStock = document.getElementById("filtro-sin-stock")?.checked || false;
   let filtrados = productosCache;
+  if (soloSinStock) {
+    filtrados = filtrados.filter((p) => p.enStock === false);
+  }
   if (textoBusqueda) {
-    filtrados = productosCache.filter((p) =>
+    filtrados = filtrados.filter((p) =>
       normalizarTexto(p.nombre).includes(textoBusqueda) ||
       normalizarTexto(p.codigo).includes(textoBusqueda) ||
       normalizarTexto(p.categoria).includes(textoBusqueda)
@@ -281,6 +285,11 @@ function aplicarFiltroAdmin() {
 
 if (elAdminBuscador) {
   elAdminBuscador.addEventListener("input", aplicarFiltroAdmin);
+}
+
+const filtroSinStock = document.getElementById("filtro-sin-stock");
+if (filtroSinStock) {
+  filtroSinStock.addEventListener("change", aplicarFiltroAdmin);
 }
 
 function renderLista(productosARenderizar = productosCache) {
