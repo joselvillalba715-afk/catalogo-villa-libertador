@@ -144,6 +144,7 @@ onSnapshot(doc(db, "configuracion", "catalogo"), (snap) => {
 // COMBOS PROMOCIONALES
 // ============================================================
 let todosLosCombos = [];
+const cantidadCombosSeleccionados = new Map(); // comboId → cantidad elegida
 
 onSnapshot(collection(db, "combos"), (snapshot) => {
   todosLosCombos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -170,10 +171,12 @@ function obtenerCombosAplicados() {
         return acc + item.precioUnitario * cantidad;
       }, 0);
       const tipoCombo = combo.tipo || "porcentaje";
-      const montoDescuento = tipoCombo === "monto"
+      const cantCombos = cantidadCombosSeleccionados.get(combo.id) || 1;
+      const montoDescuentoUnitario = tipoCombo === "monto"
         ? Math.min(combo.descuento, base)
         : Math.round(base * Math.min(combo.descuento, 100) / 100 * 100) / 100;
-      combosAplicados.push({ ...combo, base, porcentaje: combo.descuento, montoDescuento });
+      const montoDescuento = Math.round(montoDescuentoUnitario * cantCombos * 100) / 100;
+      combosAplicados.push({ ...combo, base, porcentaje: combo.descuento, montoDescuento, cantCombos });
     }
   }
   return combosAplicados;
@@ -357,7 +360,12 @@ function renderSeccionCombos() {
       labelQty.textContent = "¿Cuántos combos querés?";
       comboQtyWrap.appendChild(labelQty);
 
-      const stepperCombo = crearStepper(1, null, 1, 1);
+      const cantInicial = cantidadCombosSeleccionados.get(combo.id) || 1;
+      const stepperCombo = crearStepper(cantInicial, (nuevaCant) => {
+        cantidadCombosSeleccionados.set(combo.id, nuevaCant);
+        renderSeccionCombos();
+        if (elCartBackdrop && !elCartBackdrop.classList.contains("hidden")) renderCarrito();
+      }, 1, 1);
       stepperCombo.classList.add("combo-card__stepper");
       comboQtyWrap.appendChild(stepperCombo);
 
@@ -368,7 +376,7 @@ function renderSeccionCombos() {
       btnAgregar.className = "btn btn-primary btn-block combo-card__btn";
       btnAgregar.textContent = "🛒 Agregar combo completo";
       btnAgregar.addEventListener("click", () => {
-        const cantCombos = parseFloat(stepperCombo.querySelector(".qty-stepper__value").textContent) || 1;
+        const cantCombos = cantidadCombosSeleccionados.get(combo.id) || 1;
         productos.forEach(({ productoId, cantidad }) => {
           const prod = todosLosProductos.find(p => p.id === productoId);
           if (!prod) return;
@@ -782,7 +790,7 @@ function renderCarrito() {
   for (const combo of combosAplicados) {
     const comboRow = document.createElement("div");
     comboRow.className = "cart-discount-row cart-combo-row";
-    comboRow.innerHTML = `<span>🎁 ${combo.nombre}</span><span>-${fmt.format(combo.montoDescuento)}</span>`;
+    comboRow.innerHTML = `<span>🎁 ${combo.nombre}${combo.cantCombos > 1 ? ` x${combo.cantCombos}` : ""}</span><span>-${fmt.format(combo.montoDescuento)}</span>`;
     elCartFooter.appendChild(comboRow);
   }
 
