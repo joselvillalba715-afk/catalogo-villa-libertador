@@ -165,8 +165,9 @@ const adminTabs = document.querySelectorAll(".admin-tab");
 const tabCatalogo = document.getElementById("tab-catalogo");
 const tabPedidos = document.getElementById("tab-pedidos");
 const tabCupones = document.getElementById("tab-cupones");
+const tabCombos = document.getElementById("tab-combos");
 
-const tabsPorNombre = { catalogo: tabCatalogo, pedidos: tabPedidos, cupones: tabCupones };
+const tabsPorNombre = { catalogo: tabCatalogo, pedidos: tabPedidos, cupones: tabCupones, combos: tabCombos };
 
 adminTabs.forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -587,6 +588,13 @@ function renderPedidos() {
       cuponDetalle.innerHTML = `<strong>Cupón aplicado:</strong> ${pedido.cuponCodigo} (−${fmt.format(pedido.descuento)})`;
       detail.appendChild(cuponDetalle);
     }
+    if (pedido.combosAplicados && pedido.combosAplicados.length > 0) {
+      const combosDetalle = document.createElement("p");
+      combosDetalle.className = "helper-text";
+      combosDetalle.style.marginBottom = "10px";
+      combosDetalle.innerHTML = `<strong>Combos aplicados:</strong> ${pedido.combosAplicados.map(c => `${c.nombre} (−${fmt.format(c.descuento)})`).join(", ")}`;
+      detail.appendChild(combosDetalle);
+    }
     if (pedido.observaciones) {
       const obsDetalle = document.createElement("p");
       obsDetalle.className = "helper-text";
@@ -858,6 +866,7 @@ onAuthStateChanged(auth, (user) => {
     if (adminShell) adminShell.classList.remove("hidden");
     cargarMinimoGeneral();
     cargarPopup();
+    iniciarSuscripcionCombos();
 
     if (!suscripcionProductos) {
       const productosQuery = query(collection(db, "productos"), orderBy("categoria"), orderBy("orden"));
@@ -886,8 +895,8 @@ onAuthStateChanged(auth, (user) => {
     }
 
   } else {
-    [suscripcionProductos, suscripcionPedidos, suscripcionCupones].forEach((unsub) => { if (unsub) unsub(); });
-    suscripcionProductos = null; suscripcionPedidos = null; suscripcionCupones = null;
+    [suscripcionProductos, suscripcionPedidos, suscripcionCupones, suscripcionCombos].forEach((unsub) => { if (unsub) unsub(); });
+    suscripcionProductos = null; suscripcionPedidos = null; suscripcionCupones = null; suscripcionCombos = null;
     if (adminShell) adminShell.classList.add("hidden");
     if (loginCard) loginCard.classList.remove("hidden");
   }
@@ -1310,3 +1319,256 @@ function cargarEscalonesVolumen(contenedorId, escalones) {
 function limpiarEscalonesVolumen(contenedorId) {
   cargarEscalonesVolumen(contenedorId, []);
 }
+
+// ============================================================
+// COMBOS PROMOCIONALES
+// ============================================================
+
+let combosCache = [];
+
+// ── Fila de producto en el formulario de combo ──
+function crearFilaProductoCombo(contenedorId, productoId = "", cantidad = 1) {
+  const fila = document.createElement("div");
+  fila.className = "combo-producto-fila";
+  fila.style.cssText = "display:flex; gap:8px; align-items:center;";
+
+  const inputProducto = document.createElement("input");
+  inputProducto.type = "text";
+  inputProducto.placeholder = "Nombre o código del producto";
+  inputProducto.list = "lista-productos-combo-datalist";
+  inputProducto.autocomplete = "off";
+  inputProducto.style.cssText = "flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:0.88rem; background:var(--bg);";
+
+  // Precargar si viene con datos
+  if (productoId) {
+    const prod = productosCache.find(p => p.id === productoId);
+    if (prod) inputProducto.value = prod.codigo ? `[${prod.codigo}] ${prod.nombre}` : prod.nombre;
+  }
+  inputProducto.dataset.productoId = productoId;
+
+  // Cuando escribe, buscar el producto y guardar el id
+  inputProducto.addEventListener("input", () => {
+    const texto = inputProducto.value.toLowerCase();
+    const encontrado = productosCache.find(p =>
+      (p.nombre || "").toLowerCase().includes(texto) ||
+      (p.codigo || "").toLowerCase() === texto.replace(/\[.*?\]\s*/, "").trim()
+    );
+    inputProducto.dataset.productoId = encontrado ? encontrado.id : "";
+  });
+
+  const inputCantidad = document.createElement("input");
+  inputCantidad.type = "number";
+  inputCantidad.min = "1";
+  inputCantidad.step = "1";
+  inputCantidad.value = cantidad;
+  inputCantidad.placeholder = "Cant.";
+  inputCantidad.style.cssText = "width:70px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:0.88rem; background:var(--bg);";
+
+  const btnQuitar = document.createElement("button");
+  btnQuitar.type = "button";
+  btnQuitar.className = "icon-btn";
+  btnQuitar.textContent = "✕";
+  btnQuitar.addEventListener("click", () => fila.remove());
+
+  fila.appendChild(inputProducto);
+  fila.appendChild(inputCantidad);
+  fila.appendChild(btnQuitar);
+
+  document.getElementById(contenedorId)?.appendChild(fila);
+  return fila;
+}
+
+// Datalist compartido para autocompletar productos
+function actualizarDatalistProductosCombo() {
+  let datalist = document.getElementById("lista-productos-combo-datalist");
+  if (!datalist) {
+    datalist = document.createElement("datalist");
+    datalist.id = "lista-productos-combo-datalist";
+    document.body.appendChild(datalist);
+  }
+  datalist.innerHTML = "";
+  for (const p of productosCache) {
+    const opt = document.createElement("option");
+    opt.value = p.codigo ? `[${p.codigo}] ${p.nombre}` : p.nombre;
+    opt.dataset.id = p.id;
+    datalist.appendChild(opt);
+  }
+}
+
+function leerProductosDeCombo(contenedorId) {
+  const contenedor = document.getElementById(contenedorId);
+  if (!contenedor) return [];
+  const filas = contenedor.querySelectorAll(".combo-producto-fila");
+  const productos = [];
+  filas.forEach(fila => {
+    const inputProducto = fila.querySelector("input[type=text]");
+    const inputCantidad = fila.querySelector("input[type=number]");
+    const productoId = inputProducto?.dataset.productoId;
+    const cantidad = parseFloat(inputCantidad?.value) || 1;
+    if (productoId) productos.push({ productoId, cantidad });
+  });
+  return productos;
+}
+
+// Botón agregar fila — formulario nuevo
+document.getElementById("btn-agregar-producto-combo")?.addEventListener("click", () => {
+  crearFilaProductoCombo("combo-productos-lista");
+});
+
+// Formulario de alta
+document.getElementById("form-nuevo-combo")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const error = document.getElementById("combo-error");
+  error.textContent = "";
+
+  const nombre = document.getElementById("combo-nombre").value.trim();
+  const descripcion = document.getElementById("combo-descripcion").value.trim();
+  const descuento = parseFloat(document.getElementById("combo-descuento").value);
+  const activo = document.getElementById("combo-activo").checked;
+  const productos = leerProductosDeCombo("combo-productos-lista");
+
+  if (!nombre) { error.textContent = "El nombre no puede estar vacío."; return; }
+  if (isNaN(descuento) || descuento <= 0) { error.textContent = "El descuento debe ser mayor a 0."; return; }
+  if (productos.length < 2) { error.textContent = "Un combo debe tener al menos 2 productos."; return; }
+  if (combosCache.some(c => c.nombre.toLowerCase() === nombre.toLowerCase())) {
+    error.textContent = "Ya existe un combo con ese nombre."; return;
+  }
+
+  try {
+    await addDoc(collection(db, "combos"), { nombre, descripcion, descuento, productos, activo });
+    document.getElementById("form-nuevo-combo").reset();
+    document.getElementById("combo-productos-lista").innerHTML = "";
+  } catch (err) {
+    console.error(err);
+    error.textContent = "No se pudo crear el combo. Probá de nuevo.";
+  }
+});
+
+// Suscripción en tiempo real
+let suscripcionCombos = null;
+
+// Se inicia dentro del onAuthStateChanged (ver más abajo)
+function iniciarSuscripcionCombos() {
+  if (suscripcionCombos) return;
+  suscripcionCombos = onSnapshot(collection(db, "combos"), (snapshot) => {
+    combosCache = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderListaCombos();
+    actualizarDatalistProductosCombo();
+  }, err => console.error("Error en combos:", err));
+}
+
+function renderListaCombos() {
+  const lista = document.getElementById("lista-combos");
+  const vacio = document.getElementById("combos-vacio");
+  if (!lista) return;
+  lista.innerHTML = "";
+  if (vacio) vacio.classList.toggle("hidden", combosCache.length > 0);
+
+  for (const c of combosCache) {
+    const row = document.createElement("div");
+    row.className = "admin-product-row";
+
+    const info = document.createElement("div");
+    info.className = "admin-product-row__info";
+
+    const name = document.createElement("p");
+    name.className = "admin-product-row__name";
+    name.textContent = c.nombre;
+    info.appendChild(name);
+
+    const meta = document.createElement("p");
+    meta.className = "admin-product-row__meta";
+    const productosTexto = (c.productos || []).map(p => {
+      const prod = productosCache.find(x => x.id === p.productoId);
+      return prod ? `${p.cantidad}x ${prod.nombre}` : `${p.cantidad}x (producto eliminado)`;
+    }).join(" + ");
+    meta.textContent = `${c.descuento}% off · ${productosTexto}`;
+    info.appendChild(meta);
+
+    if (c.descripcion) {
+      const desc = document.createElement("p");
+      desc.className = "admin-product-row__meta";
+      desc.style.fontStyle = "italic";
+      desc.textContent = c.descripcion;
+      info.appendChild(desc);
+    }
+
+    const tagEstado = document.createElement("span");
+    tagEstado.className = c.activo ? "tag tag--promo" : "tag tag--soldout";
+    tagEstado.textContent = c.activo ? "Activo" : "Inactivo";
+    info.appendChild(tagEstado);
+
+    row.appendChild(info);
+
+    const actions = document.createElement("div");
+    actions.className = "admin-product-row__actions";
+
+    const btnEditar = document.createElement("button");
+    btnEditar.type = "button"; btnEditar.className = "icon-btn"; btnEditar.textContent = "Editar";
+    btnEditar.addEventListener("click", () => abrirModalEditarCombo(c));
+    actions.appendChild(btnEditar);
+
+    const btnEliminar = document.createElement("button");
+    btnEliminar.type = "button"; btnEliminar.className = "icon-btn"; btnEliminar.textContent = "Eliminar";
+    btnEliminar.addEventListener("click", async () => {
+      if (!confirm(`¿Eliminar el combo "${c.nombre}"?`)) return;
+      try { await deleteDoc(doc(db, "combos", c.id)); }
+      catch (err) { console.error(err); alert("No se pudo eliminar."); }
+    });
+    actions.appendChild(btnEliminar);
+
+    row.appendChild(actions);
+    lista.appendChild(row);
+  }
+}
+
+// Modal editar combo
+function abrirModalEditarCombo(c) {
+  document.getElementById("ec2-id").value = c.id;
+  document.getElementById("ec2-nombre").value = c.nombre;
+  document.getElementById("ec2-descripcion").value = c.descripcion || "";
+  document.getElementById("ec2-descuento").value = c.descuento;
+  document.getElementById("ec2-activo").checked = !!c.activo;
+  document.getElementById("editar-combo-error").textContent = "";
+
+  const lista = document.getElementById("ec2-productos-lista");
+  lista.innerHTML = "";
+  (c.productos || []).forEach(p => crearFilaProductoCombo("ec2-productos-lista", p.productoId, p.cantidad));
+
+  document.getElementById("modal-editar-combo").classList.remove("hidden");
+}
+
+document.getElementById("btn-ec2-agregar-producto")?.addEventListener("click", () => {
+  crearFilaProductoCombo("ec2-productos-lista");
+});
+
+document.getElementById("btn-cancelar-editar-combo")?.addEventListener("click", () => {
+  document.getElementById("modal-editar-combo").classList.add("hidden");
+});
+
+document.getElementById("form-editar-combo")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const error = document.getElementById("editar-combo-error");
+  error.textContent = "";
+
+  const id = document.getElementById("ec2-id").value;
+  const nombre = document.getElementById("ec2-nombre").value.trim();
+  const descripcion = document.getElementById("ec2-descripcion").value.trim();
+  const descuento = parseFloat(document.getElementById("ec2-descuento").value);
+  const activo = document.getElementById("ec2-activo").checked;
+  const productos = leerProductosDeCombo("ec2-productos-lista");
+
+  if (!nombre) { error.textContent = "El nombre no puede estar vacío."; return; }
+  if (productos.length < 2) { error.textContent = "Un combo debe tener al menos 2 productos."; return; }
+  if (combosCache.some(c => c.nombre.toLowerCase() === nombre.toLowerCase() && c.id !== id)) {
+    error.textContent = "Ya existe otro combo con ese nombre."; return;
+  }
+
+  try {
+    await updateDoc(doc(db, "combos", id), { nombre, descripcion, descuento, productos, activo });
+    document.getElementById("modal-editar-combo").classList.add("hidden");
+  } catch (err) {
+    console.error(err);
+    error.textContent = "No se pudieron guardar los cambios.";
+  }
+});
