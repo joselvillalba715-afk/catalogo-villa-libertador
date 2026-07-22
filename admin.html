@@ -459,9 +459,18 @@
             <label for="combo-descripcion">Descripción (visible para el cliente)</label>
             <input type="text" id="combo-descripcion" placeholder="Ej: Llevá 2 Coca-Cola + 1 Sprite con 15% off" />
           </div>
-          <div class="field">
-            <label for="combo-descuento">Porcentaje de descuento (%)</label>
-            <input type="number" id="combo-descuento" min="1" max="100" step="0.1" required placeholder="Ej: 15" />
+          <div class="field-row">
+            <div class="field">
+              <label for="combo-tipo">Tipo de descuento</label>
+              <select id="combo-tipo" required>
+                <option value="porcentaje">Porcentaje (%)</option>
+                <option value="monto">Monto fijo ($)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="combo-descuento" id="combo-descuento-label">Valor del descuento</label>
+              <input type="number" id="combo-descuento" min="0" step="0.01" required placeholder="Ej: 15 o 5000" />
+            </div>
           </div>
 
           <div class="field">
@@ -504,9 +513,18 @@
           <label for="ec2-descripcion">Descripción</label>
           <input type="text" id="ec2-descripcion" />
         </div>
-        <div class="field">
-          <label for="ec2-descuento">Porcentaje de descuento (%)</label>
-          <input type="number" id="ec2-descuento" min="1" max="100" step="0.1" required />
+        <div class="field-row">
+          <div class="field">
+            <label for="ec2-tipo">Tipo de descuento</label>
+            <select id="ec2-tipo" required>
+              <option value="porcentaje">Porcentaje (%)</option>
+              <option value="monto">Monto fijo ($)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ec2-descuento" id="ec2-descuento-label">Valor del descuento</label>
+            <input type="number" id="ec2-descuento" min="0" step="0.01" required />
+          </div>
         </div>
         <div class="field">
           <label>Productos del combo</label>
