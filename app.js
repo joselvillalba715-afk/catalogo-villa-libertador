@@ -169,9 +169,10 @@ function obtenerCombosAplicados() {
         if (!item) return acc;
         return acc + item.precioUnitario * cantidad;
       }, 0);
-      const montoDescuento = combo.tipo === "monto"
-        ? Math.min(combo.descuento, base) // monto fijo, no puede superar la base
-        : Math.round(base * combo.descuento / 100 * 100) / 100;
+      const tipoCombo = combo.tipo || "porcentaje";
+      const montoDescuento = tipoCombo === "monto"
+        ? Math.min(combo.descuento, base)
+        : Math.round(base * Math.min(combo.descuento, 100) / 100 * 100) / 100;
       combosAplicados.push({ ...combo, base, porcentaje: combo.descuento, montoDescuento });
     }
   }
@@ -301,9 +302,10 @@ function renderSeccionCombos() {
       const precio = prod.promo && prod.precioPromo != null ? prod.precioPromo : prod.precio || 0;
       return acc + precio * cantidad;
     }, 0);
-    const montoDescuentoCombo = combo.tipo === "monto"
+    const tipoComboTarjeta = combo.tipo || "porcentaje";
+    const montoDescuentoCombo = tipoComboTarjeta === "monto"
       ? Math.min(combo.descuento, precioTotal)
-      : Math.round(precioTotal * combo.descuento / 100 * 100) / 100;
+      : Math.round(precioTotal * Math.min(combo.descuento, 100) / 100 * 100) / 100;
     const precioConDescuento = precioTotal - montoDescuentoCombo;
 
     // Bloque de precios
