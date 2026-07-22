@@ -169,7 +169,9 @@ function obtenerCombosAplicados() {
         if (!item) return acc;
         return acc + item.precioUnitario * cantidad;
       }, 0);
-      const montoDescuento = Math.round(base * combo.descuento / 100 * 100) / 100;
+      const montoDescuento = combo.tipo === "monto"
+        ? Math.min(combo.descuento, base) // monto fijo, no puede superar la base
+        : Math.round(base * combo.descuento / 100 * 100) / 100;
       combosAplicados.push({ ...combo, base, porcentaje: combo.descuento, montoDescuento });
     }
   }
@@ -299,7 +301,9 @@ function renderSeccionCombos() {
       const precio = prod.promo && prod.precioPromo != null ? prod.precioPromo : prod.precio || 0;
       return acc + precio * cantidad;
     }, 0);
-    const montoDescuentoCombo = Math.round(precioTotal * combo.descuento / 100 * 100) / 100;
+    const montoDescuentoCombo = combo.tipo === "monto"
+      ? Math.min(combo.descuento, precioTotal)
+      : Math.round(precioTotal * combo.descuento / 100 * 100) / 100;
     const precioConDescuento = precioTotal - montoDescuentoCombo;
 
     // Bloque de precios
@@ -619,7 +623,7 @@ function mensajeWhatsAppCarrito(nombreCliente, formaPago, observaciones) {
     bloqueTotales += `\nDescuento (${cuponAplicado.codigo}): -${fmt.format(descuento)}`;
   }
   for (const combo of combosAplicados) {
-    bloqueTotales += `\n🎁 ${combo.nombre} (${combo.porcentaje}% off): -${fmt.format(combo.montoDescuento)}`;
+    bloqueTotales += `\n🎁 ${combo.nombre}: -${fmt.format(combo.montoDescuento)}`;
   }
   bloqueTotales += `\nTotal: ${fmt.format(totalConDescuento())}`;
   const bloqueObservaciones = observaciones ? `\n\nObservaciones: ${observaciones}` : "";
@@ -776,7 +780,7 @@ function renderCarrito() {
   for (const combo of combosAplicados) {
     const comboRow = document.createElement("div");
     comboRow.className = "cart-discount-row cart-combo-row";
-    comboRow.innerHTML = `<span>🎁 ${combo.nombre} (${combo.porcentaje}% off)</span><span>-${fmt.format(combo.montoDescuento)}</span>`;
+    comboRow.innerHTML = `<span>🎁 ${combo.nombre}</span><span>-${fmt.format(combo.montoDescuento)}</span>`;
     elCartFooter.appendChild(comboRow);
   }
 
