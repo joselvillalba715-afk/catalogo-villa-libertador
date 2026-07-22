@@ -215,7 +215,7 @@ function renderSeccionCombos() {
 
     const badge = document.createElement("span");
     badge.className = "combo-card__badge";
-    badge.textContent = `${combo.descuento}% OFF`;
+    badge.textContent = "COMBO ESPECIAL";
     header.appendChild(badge);
 
     const nombre = document.createElement("h3");
@@ -292,6 +292,37 @@ function renderSeccionCombos() {
 
     card.appendChild(productosWrap);
 
+    // Calcular total y descuento del combo
+    const precioTotal = productos.reduce((acc, { productoId, cantidad }) => {
+      const prod = todosLosProductos.find(p => p.id === productoId);
+      if (!prod) return acc;
+      const precio = prod.promo && prod.precioPromo != null ? prod.precioPromo : prod.precio || 0;
+      return acc + precio * cantidad;
+    }, 0);
+    const montoDescuentoCombo = Math.round(precioTotal * combo.descuento / 100 * 100) / 100;
+    const precioConDescuento = precioTotal - montoDescuentoCombo;
+
+    // Bloque de precios
+    const preciosWrap = document.createElement("div");
+    preciosWrap.className = "combo-card__precios";
+
+    const precioNormal = document.createElement("span");
+    precioNormal.className = "combo-card__precio-normal";
+    precioNormal.textContent = fmt.format(precioTotal);
+    preciosWrap.appendChild(precioNormal);
+
+    const precioFinal = document.createElement("span");
+    precioFinal.className = "combo-card__precio-final";
+    precioFinal.textContent = fmt.format(precioConDescuento);
+    preciosWrap.appendChild(precioFinal);
+
+    const ahorro = document.createElement("span");
+    ahorro.className = "combo-card__ahorro";
+    ahorro.textContent = `Ahorrás ${fmt.format(montoDescuentoCombo)} por combo`;
+    preciosWrap.appendChild(ahorro);
+
+    card.appendChild(preciosWrap);
+
     // Progreso
     const progreso = document.createElement("div");
     progreso.className = "combo-card__progreso";
@@ -305,33 +336,46 @@ function renderSeccionCombos() {
     const progresoTexto = document.createElement("span");
     progresoTexto.className = "combo-card__progreso-texto";
     progresoTexto.textContent = completo
-      ? `✓ Combo completo — ${combo.descuento}% de descuento aplicado`
+      ? `✓ Combo completo — descuento de ${fmt.format(montoDescuentoCombo)} aplicado`
       : `${itemsEnCarrito} de ${productos.length} productos en tu carrito`;
     progreso.appendChild(progresoTexto);
     card.appendChild(progreso);
 
-    // Botón agregar combo completo
+    // Selector de cantidad de combos + botón agregar
     if (!completo) {
+      const comboQtyWrap = document.createElement("div");
+      comboQtyWrap.className = "combo-card__qty-wrap";
+
+      const labelQty = document.createElement("span");
+      labelQty.className = "combo-card__qty-label";
+      labelQty.textContent = "¿Cuántos combos querés?";
+      comboQtyWrap.appendChild(labelQty);
+
+      const stepperCombo = crearStepper(1, null, 1, 1);
+      stepperCombo.classList.add("combo-card__stepper");
+      comboQtyWrap.appendChild(stepperCombo);
+
+      card.appendChild(comboQtyWrap);
+
       const btnAgregar = document.createElement("button");
       btnAgregar.type = "button";
       btnAgregar.className = "btn btn-primary btn-block combo-card__btn";
       btnAgregar.textContent = "🛒 Agregar combo completo";
       btnAgregar.addEventListener("click", () => {
+        const cantCombos = parseFloat(stepperCombo.querySelector(".qty-stepper__value").textContent) || 1;
         productos.forEach(({ productoId, cantidad }) => {
           const prod = todosLosProductos.find(p => p.id === productoId);
           if (!prod) return;
+          const cantidadTotal = cantidad * cantCombos;
           const enCarrito = carrito[productoId];
-          if (!enCarrito || enCarrito.cantidad < cantidad) {
-            // Agregar la diferencia para llegar al mínimo
-            const cantidadAAgregar = enCarrito
-              ? Math.max(0, cantidad - enCarrito.cantidad)
-              : cantidad;
-            if (cantidadAAgregar > 0) {
-              const precioUnitario = precioSegunVolumen(prod, cantidad);
-              agregarAlCarrito({ ...prod, precio: precioUnitario, promo: false, precioPromo: null }, cantidadAAgregar);
-              if (carrito[productoId]) carrito[productoId].precioUnitario = precioUnitario;
-              guardarCarrito();
-            }
+          const cantidadAAgregar = enCarrito
+            ? Math.max(0, cantidadTotal - enCarrito.cantidad)
+            : cantidadTotal;
+          if (cantidadAAgregar > 0) {
+            const precioUnitario = precioSegunVolumen(prod, cantidadTotal);
+            agregarAlCarrito({ ...prod, precio: precioUnitario, promo: false, precioPromo: null }, cantidadAAgregar);
+            if (carrito[productoId]) carrito[productoId].precioUnitario = precioUnitario;
+            guardarCarrito();
           }
         });
         actualizarTodasLasTarjetas();
