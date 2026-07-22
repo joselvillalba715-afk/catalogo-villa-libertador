@@ -1335,7 +1335,7 @@ function crearFilaProductoCombo(contenedorId, productoId = "", cantidad = 1) {
   const inputProducto = document.createElement("input");
   inputProducto.type = "text";
   inputProducto.placeholder = "Nombre o código del producto";
-  inputProducto.list = "lista-productos-combo-datalist";
+  inputProducto.setAttribute("list", "lista-productos-combo-datalist");
   inputProducto.autocomplete = "off";
   inputProducto.style.cssText = "flex:1; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:0.88rem; background:var(--bg);";
 
