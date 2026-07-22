@@ -169,15 +169,15 @@ function obtenerCombosAplicados() {
         if (!item) return acc;
         return acc + item.precioUnitario * cantidad;
       }, 0);
-      const descuento = Math.round(base * combo.descuento / 100 * 100) / 100;
-      combosAplicados.push({ ...combo, base, descuento });
+      const montoDescuento = Math.round(base * combo.descuento / 100 * 100) / 100;
+      combosAplicados.push({ ...combo, base, porcentaje: combo.descuento, montoDescuento });
     }
   }
   return combosAplicados;
 }
 
 function totalDescuentoCombos() {
-  return obtenerCombosAplicados().reduce((acc, c) => acc + c.descuento, 0);
+  return obtenerCombosAplicados().reduce((acc, c) => acc + c.montoDescuento, 0);
 }
 
 function renderSeccionCombos() {
@@ -575,7 +575,7 @@ function mensajeWhatsAppCarrito(nombreCliente, formaPago, observaciones) {
     bloqueTotales += `\nDescuento (${cuponAplicado.codigo}): -${fmt.format(descuento)}`;
   }
   for (const combo of combosAplicados) {
-    bloqueTotales += `\n🎁 ${combo.nombre} (${combo.descuento}% off): -${fmt.format(combo.descuento)}`;
+    bloqueTotales += `\n🎁 ${combo.nombre} (${combo.porcentaje}% off): -${fmt.format(combo.montoDescuento)}`;
   }
   bloqueTotales += `\nTotal: ${fmt.format(totalConDescuento())}`;
   const bloqueObservaciones = observaciones ? `\n\nObservaciones: ${observaciones}` : "";
@@ -632,7 +632,7 @@ if (elFormDatosCliente) {
         subtotal: totalCarrito(),
         cuponCodigo: cuponAplicado ? cuponAplicado.codigo : null,
         descuento: calcularDescuento(),
-        combosAplicados: obtenerCombosAplicados().map(c => ({ nombre: c.nombre, descuento: c.descuento })),
+        combosAplicados: obtenerCombosAplicados().map(c => ({ nombre: c.nombre, porcentaje: c.porcentaje, monto: c.montoDescuento })),
         descuentoCombos: totalDescuentoCombos(),
         total: totalConDescuento(),
         observaciones: observaciones || "",
@@ -732,7 +732,7 @@ function renderCarrito() {
   for (const combo of combosAplicados) {
     const comboRow = document.createElement("div");
     comboRow.className = "cart-discount-row cart-combo-row";
-    comboRow.innerHTML = `<span>🎁 ${combo.nombre} (${combo.descuento}% off)</span><span>-${fmt.format(combo.descuento)}</span>`;
+    comboRow.innerHTML = `<span>🎁 ${combo.nombre} (${combo.porcentaje}% off)</span><span>-${fmt.format(combo.montoDescuento)}</span>`;
     elCartFooter.appendChild(comboRow);
   }
 
