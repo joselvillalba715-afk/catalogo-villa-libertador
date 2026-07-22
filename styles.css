@@ -996,7 +996,6 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 20px 100px; }
   flex: 1;
   min-width: 70px;
   max-width: 90px;
-  opacity: 0.6;
   transition: opacity 0.2s;
 }
 
@@ -1121,4 +1120,57 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 20px 100px; }
     flex: 1 1 100%;
     max-width: 100%;
   }
+}
+
+/* ── Precios del combo ── */
+
+.combo-card__precios {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 0 4px;
+  border-top: 1px solid var(--border);
+}
+
+.combo-card__precio-normal {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.combo-card__precio-final {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.combo-card__ahorro {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #2d7a4f;
+  background: #e3f2e1;
+  padding: 3px 8px;
+  border-radius: 6px;
+  align-self: flex-start;
+}
+
+/* ── Selector de cantidad de combos ── */
+
+.combo-card__qty-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+
+.combo-card__qty-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.combo-card__stepper .qty-stepper {
+  border-color: var(--primary);
 }
