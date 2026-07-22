@@ -74,6 +74,7 @@ function actualizarTodasLasTarjetas() {
   for (const [id, fn] of tarjetasRegistradas.entries()) {
     fn();
   }
+  renderSeccionCombos();
 }
 
 function totalItems() {
@@ -138,6 +139,211 @@ onSnapshot(doc(db, "configuracion", "catalogo"), (snap) => {
     renderCarrito();
   }
 });
+
+// ============================================================
+// COMBOS PROMOCIONALES
+// ============================================================
+let todosLosCombos = [];
+
+onSnapshot(collection(db, "combos"), (snapshot) => {
+  todosLosCombos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderSeccionCombos();
+  if (elCartBackdrop && !elCartBackdrop.classList.contains("hidden")) {
+    renderCarrito();
+  }
+});
+
+function obtenerCombosAplicados() {
+  const combosAplicados = [];
+  for (const combo of todosLosCombos) {
+    if (!combo.activo) continue;
+    const productos = combo.productos || [];
+    if (productos.length < 2) continue;
+    const cumple = productos.every(({ productoId, cantidad }) => {
+      const itemCarrito = carrito[productoId];
+      return itemCarrito && itemCarrito.cantidad >= cantidad;
+    });
+    if (cumple) {
+      const base = productos.reduce((acc, { productoId, cantidad }) => {
+        const item = carrito[productoId];
+        if (!item) return acc;
+        return acc + item.precioUnitario * cantidad;
+      }, 0);
+      const descuento = Math.round(base * combo.descuento / 100 * 100) / 100;
+      combosAplicados.push({ ...combo, base, descuento });
+    }
+  }
+  return combosAplicados;
+}
+
+function totalDescuentoCombos() {
+  return obtenerCombosAplicados().reduce((acc, c) => acc + c.descuento, 0);
+}
+
+function renderSeccionCombos() {
+  const seccion = document.getElementById("combos-seccion");
+  const lista = document.getElementById("combos-lista");
+  if (!seccion || !lista) return;
+
+  const combosActivos = todosLosCombos.filter(c => c.activo && (c.productos || []).length >= 2);
+
+  if (combosActivos.length === 0) {
+    seccion.classList.add("hidden");
+    return;
+  }
+
+  seccion.classList.remove("hidden");
+  lista.innerHTML = "";
+
+  for (const combo of combosActivos) {
+    const card = document.createElement("div");
+    card.className = "combo-card";
+
+    // Verificar progreso del combo en el carrito
+    const productos = combo.productos || [];
+    const itemsEnCarrito = productos.filter(({ productoId, cantidad }) => {
+      const item = carrito[productoId];
+      return item && item.cantidad >= cantidad;
+    }).length;
+    const completo = itemsEnCarrito === productos.length;
+
+    if (completo) card.classList.add("combo-card--completo");
+
+    // Header del combo
+    const header = document.createElement("div");
+    header.className = "combo-card__header";
+
+    const badge = document.createElement("span");
+    badge.className = "combo-card__badge";
+    badge.textContent = `${combo.descuento}% OFF`;
+    header.appendChild(badge);
+
+    const nombre = document.createElement("h3");
+    nombre.className = "combo-card__nombre";
+    nombre.textContent = combo.nombre;
+    header.appendChild(nombre);
+
+    if (combo.descripcion) {
+      const desc = document.createElement("p");
+      desc.className = "combo-card__desc";
+      desc.textContent = combo.descripcion;
+      header.appendChild(desc);
+    }
+
+    card.appendChild(header);
+
+    // Productos del combo
+    const productosWrap = document.createElement("div");
+    productosWrap.className = "combo-card__productos";
+
+    productos.forEach(({ productoId, cantidad }, idx) => {
+      const prod = todosLosProductos.find(p => p.id === productoId);
+      if (!idx === 0) {
+        const plus = document.createElement("span");
+        plus.className = "combo-card__plus";
+        plus.textContent = "+";
+        productosWrap.appendChild(plus);
+      }
+
+      const item = document.createElement("div");
+      item.className = "combo-card__item";
+
+      const enCarrito = carrito[productoId];
+      const cumpleEste = enCarrito && enCarrito.cantidad >= cantidad;
+      if (cumpleEste) item.classList.add("combo-card__item--ok");
+
+      // Imagen
+      const imgWrap = document.createElement("div");
+      imgWrap.className = "combo-card__item-img";
+      if (prod?.imagenUrl) {
+        const img = document.createElement("img");
+        img.src = prod.imagenUrl;
+        img.alt = prod?.nombre || "";
+        img.loading = "lazy";
+        imgWrap.appendChild(img);
+      } else {
+        imgWrap.textContent = "📦";
+      }
+      item.appendChild(imgWrap);
+
+      const itemInfo = document.createElement("div");
+      itemInfo.className = "combo-card__item-info";
+
+      const itemNombre = document.createElement("span");
+      itemNombre.className = "combo-card__item-nombre";
+      itemNombre.textContent = prod ? prod.nombre : "Producto no disponible";
+      itemInfo.appendChild(itemNombre);
+
+      const itemCant = document.createElement("span");
+      itemCant.className = "combo-card__item-cant";
+      itemCant.textContent = `x${fmtCantidad(cantidad)}`;
+      itemInfo.appendChild(itemCant);
+
+      if (cumpleEste) {
+        const tick = document.createElement("span");
+        tick.className = "combo-card__item-tick";
+        tick.textContent = "✓";
+        itemInfo.appendChild(tick);
+      }
+
+      item.appendChild(itemInfo);
+      productosWrap.appendChild(item);
+    });
+
+    card.appendChild(productosWrap);
+
+    // Progreso
+    const progreso = document.createElement("div");
+    progreso.className = "combo-card__progreso";
+    const barra = document.createElement("div");
+    barra.className = "combo-card__barra";
+    const fill = document.createElement("div");
+    fill.className = "combo-card__barra-fill";
+    fill.style.width = `${(itemsEnCarrito / productos.length) * 100}%`;
+    barra.appendChild(fill);
+    progreso.appendChild(barra);
+    const progresoTexto = document.createElement("span");
+    progresoTexto.className = "combo-card__progreso-texto";
+    progresoTexto.textContent = completo
+      ? `✓ Combo completo — ${combo.descuento}% de descuento aplicado`
+      : `${itemsEnCarrito} de ${productos.length} productos en tu carrito`;
+    progreso.appendChild(progresoTexto);
+    card.appendChild(progreso);
+
+    // Botón agregar combo completo
+    if (!completo) {
+      const btnAgregar = document.createElement("button");
+      btnAgregar.type = "button";
+      btnAgregar.className = "btn btn-primary btn-block combo-card__btn";
+      btnAgregar.textContent = "🛒 Agregar combo completo";
+      btnAgregar.addEventListener("click", () => {
+        productos.forEach(({ productoId, cantidad }) => {
+          const prod = todosLosProductos.find(p => p.id === productoId);
+          if (!prod) return;
+          const enCarrito = carrito[productoId];
+          if (!enCarrito || enCarrito.cantidad < cantidad) {
+            // Agregar la diferencia para llegar al mínimo
+            const cantidadAAgregar = enCarrito
+              ? Math.max(0, cantidad - enCarrito.cantidad)
+              : cantidad;
+            if (cantidadAAgregar > 0) {
+              const precioUnitario = precioSegunVolumen(prod, cantidad);
+              agregarAlCarrito({ ...prod, precio: precioUnitario, promo: false, precioPromo: null }, cantidadAAgregar);
+              if (carrito[productoId]) carrito[productoId].precioUnitario = precioUnitario;
+              guardarCarrito();
+            }
+          }
+        });
+        actualizarTodasLasTarjetas();
+        renderSeccionCombos();
+        renderCarrito();
+      });
+      card.appendChild(btnAgregar);
+    }
+
+    lista.appendChild(card);
+  }
+}
 
 // ============================================================
 // CARRUSEL DE PRODUCTOS DESTACADOS
@@ -302,7 +508,7 @@ function calcularDescuento() {
 }
 
 function totalConDescuento() {
-  return Math.max(0, totalCarrito() - calcularDescuento());
+  return Math.max(0, totalCarrito() - calcularDescuento() - totalDescuentoCombos());
 }
 
 function aplicarCupon(codigoIngresado) {
@@ -363,13 +569,15 @@ function mensajeWhatsAppCarrito(nombreCliente, formaPago, observaciones) {
   const items = Object.values(carrito);
   const lineas = items.map((it) => `• ${fmtCantidad(it.cantidad)}x ${it.nombre} (${fmt.format(it.precioUnitario)} c/u) = ${fmt.format(it.precioUnitario * it.cantidad)}`);
   const descuento = calcularDescuento();
+  const combosAplicados = obtenerCombosAplicados();
   let bloqueTotales = `\n\nSubtotal: ${fmt.format(totalCarrito())}`;
   if (descuento > 0 && cuponAplicado) {
     bloqueTotales += `\nDescuento (${cuponAplicado.codigo}): -${fmt.format(descuento)}`;
-    bloqueTotales += `\nTotal: ${fmt.format(totalConDescuento())}`;
-  } else {
-    bloqueTotales += `\nTotal: ${fmt.format(totalCarrito())}`;
   }
+  for (const combo of combosAplicados) {
+    bloqueTotales += `\n🎁 ${combo.nombre} (${combo.descuento}% off): -${fmt.format(combo.descuento)}`;
+  }
+  bloqueTotales += `\nTotal: ${fmt.format(totalConDescuento())}`;
   const bloqueObservaciones = observaciones ? `\n\nObservaciones: ${observaciones}` : "";
   return `${waBase}?text=${encodeURIComponent(`Hola! Soy ${nombreCliente} y quiero hacer este pedido:\n\n${lineas.join("\n")}${bloqueTotales}\nForma de pago: ${formaPago}${bloqueObservaciones}`)}`;
 }
@@ -421,8 +629,13 @@ if (elFormDatosCliente) {
     try {
       await addDoc(collection(db, "pedidos"), {
         clienteNombre: nombreCliente, clienteWhatsapp: whatsappCliente, formaPago, items,
-        subtotal: totalCarrito(), cuponCodigo: cuponAplicado ? cuponAplicado.codigo : null,
-        descuento, total: totalConDescuento(), observaciones: observaciones || "",
+        subtotal: totalCarrito(),
+        cuponCodigo: cuponAplicado ? cuponAplicado.codigo : null,
+        descuento: calcularDescuento(),
+        combosAplicados: obtenerCombosAplicados().map(c => ({ nombre: c.nombre, descuento: c.descuento })),
+        descuentoCombos: totalDescuentoCombos(),
+        total: totalConDescuento(),
+        observaciones: observaciones || "",
         creadoEn: serverTimestamp(),
       });
 
@@ -497,17 +710,30 @@ function renderCarrito() {
 
   elCartFooter.innerHTML = "";
   const descuento = calcularDescuento();
+  const combosAplicados = obtenerCombosAplicados();
+  const hayDescuentos = (descuento > 0 && cuponAplicado) || combosAplicados.length > 0;
 
-  if (descuento > 0 && cuponAplicado) {
+  if (hayDescuentos) {
     const subtotalRow = document.createElement("div");
     subtotalRow.className = "cart-discount-row";
     subtotalRow.style.color = "var(--ink-soft)";
     subtotalRow.innerHTML = `<span>Subtotal</span><span>${fmt.format(totalCarrito())}</span>`;
     elCartFooter.appendChild(subtotalRow);
+  }
+
+  if (descuento > 0 && cuponAplicado) {
     const discountRow = document.createElement("div");
     discountRow.className = "cart-discount-row";
     discountRow.innerHTML = `<span>Descuento (${cuponAplicado.codigo})</span><span>-${fmt.format(descuento)}</span>`;
     elCartFooter.appendChild(discountRow);
+  }
+
+  // Mostrar cada combo aplicado
+  for (const combo of combosAplicados) {
+    const comboRow = document.createElement("div");
+    comboRow.className = "cart-discount-row cart-combo-row";
+    comboRow.innerHTML = `<span>🎁 ${combo.nombre} (${combo.descuento}% off)</span><span>-${fmt.format(combo.descuento)}</span>`;
+    elCartFooter.appendChild(comboRow);
   }
 
   const totalRow = document.createElement("div"); totalRow.className = "cart-total-row";
@@ -659,6 +885,18 @@ function renderCard(p) {
   if (p.imagenUrl) { const img = document.createElement("img"); img.src = p.imagenUrl; img.alt = p.nombre; img.loading = "lazy"; imgWrap.appendChild(img); }
   else { const ph = document.createElement("div"); ph.className = "product-card__img-placeholder"; const phText = document.createElement("span"); phText.textContent = p.nombre; ph.appendChild(phText); imgWrap.appendChild(ph); }
   if (p.promo && p.enStock !== false) { const stamp = document.createElement("span"); stamp.className = "promo-stamp"; stamp.textContent = "Oferta"; imgWrap.appendChild(stamp); }
+
+  // Badge de combo si el producto forma parte de un combo activo
+  const combosConEsteProducto = todosLosCombos.filter(c =>
+    c.activo && (c.productos || []).some(pr => pr.productoId === p.id)
+  );
+  if (combosConEsteProducto.length > 0 && p.enStock !== false) {
+    const comboBadge = document.createElement("span");
+    comboBadge.className = "combo-badge-tarjeta";
+    comboBadge.textContent = "🎁 Combo";
+    comboBadge.title = combosConEsteProducto.map(c => c.nombre).join(", ");
+    imgWrap.appendChild(comboBadge);
+  }
   card.appendChild(imgWrap);
   const body = document.createElement("div"); body.className = "product-card__body";
   const metaWrap = document.createElement("div"); metaWrap.className = "product-card__meta";
@@ -836,6 +1074,7 @@ onSnapshot(productosQuery, (snapshot) => {
   if (elEstado) elEstado.classList.add("hidden");
   renderNavCategorias(todosLosProductos);
   renderCarrusel(todosLosProductos);
+  renderSeccionCombos();
   aplicarFiltros();
 }, (error) => {
   console.error(error);
