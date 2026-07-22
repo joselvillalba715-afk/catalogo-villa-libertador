@@ -140,6 +140,7 @@
       <button type="button" class="admin-tab admin-tab--active" data-tab="catalogo">Catálogo</button>
       <button type="button" class="admin-tab" data-tab="pedidos">Pedidos</button>
       <button type="button" class="admin-tab" data-tab="cupones">Cupones</button>
+      <button type="button" class="admin-tab" data-tab="combos">Combos</button>
     </div>
 
     <div id="tab-catalogo">
@@ -444,6 +445,85 @@
       </div>
     </div>
 
+    <!-- PESTAÑA COMBOS -->
+    <div id="tab-combos" class="hidden">
+      <div class="panel">
+        <h2>Crear combo promocional</h2>
+        <p class="helper-text">El descuento se aplica automáticamente cuando el cliente tiene todos los productos del combo en el carrito.</p>
+        <form id="form-nuevo-combo">
+          <div class="field">
+            <label for="combo-nombre">Nombre del combo</label>
+            <input type="text" id="combo-nombre" required placeholder="Ej: Combo Refrescante" />
+          </div>
+          <div class="field">
+            <label for="combo-descripcion">Descripción (visible para el cliente)</label>
+            <input type="text" id="combo-descripcion" placeholder="Ej: Llevá 2 Coca-Cola + 1 Sprite con 15% off" />
+          </div>
+          <div class="field">
+            <label for="combo-descuento">Porcentaje de descuento (%)</label>
+            <input type="number" id="combo-descuento" min="1" max="100" step="0.1" required placeholder="Ej: 15" />
+          </div>
+
+          <div class="field">
+            <label>Productos del combo</label>
+            <p class="helper-text">Buscá cada producto por nombre o código y definí la cantidad mínima requerida.</p>
+            <div id="combo-productos-lista" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;"></div>
+            <button type="button" class="btn btn-secondary" id="btn-agregar-producto-combo">+ Agregar producto al combo</button>
+          </div>
+
+          <div class="checkbox-field">
+            <input type="checkbox" id="combo-activo" checked />
+            <label for="combo-activo">Combo activo</label>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block">Crear combo</button>
+          <p class="error-text" id="combo-error"></p>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h2>Combos creados</h2>
+        <p class="helper-text" id="combos-vacio">Todavía no creaste ningún combo.</p>
+        <div class="admin-product-list" id="lista-combos"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MODAL EDITAR COMBO -->
+  <div class="modal-backdrop hidden" id="modal-editar-combo">
+    <div class="modal">
+      <h2>Editar combo</h2>
+      <form id="form-editar-combo">
+        <input type="hidden" id="ec2-id" />
+        <div class="field">
+          <label for="ec2-nombre">Nombre del combo</label>
+          <input type="text" id="ec2-nombre" required />
+        </div>
+        <div class="field">
+          <label for="ec2-descripcion">Descripción</label>
+          <input type="text" id="ec2-descripcion" />
+        </div>
+        <div class="field">
+          <label for="ec2-descuento">Porcentaje de descuento (%)</label>
+          <input type="number" id="ec2-descuento" min="1" max="100" step="0.1" required />
+        </div>
+        <div class="field">
+          <label>Productos del combo</label>
+          <div id="ec2-productos-lista" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;"></div>
+          <button type="button" class="btn btn-secondary" id="btn-ec2-agregar-producto">+ Agregar producto</button>
+        </div>
+        <div class="checkbox-field">
+          <input type="checkbox" id="ec2-activo" />
+          <label for="ec2-activo">Combo activo</label>
+        </div>
+        <p class="error-text" id="editar-combo-error"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancelar-editar-combo">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- MODAL EDITAR PRODUCTO -->
