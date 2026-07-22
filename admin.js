@@ -1411,6 +1411,19 @@ function leerProductosDeCombo(contenedorId) {
 }
 
 // Botón agregar fila — formulario nuevo
+// Actualizar label del descuento según el tipo
+function actualizarLabelDescuentoCombo(selectId, labelId) {
+  const sel = document.getElementById(selectId);
+  const lbl = document.getElementById(labelId);
+  if (!sel || !lbl) return;
+  lbl.textContent = sel.value === "porcentaje" ? "Porcentaje de descuento (%)" : "Monto fijo a descontar ($)";
+}
+
+document.getElementById("combo-tipo")?.addEventListener("change", () =>
+  actualizarLabelDescuentoCombo("combo-tipo", "combo-descuento-label"));
+document.getElementById("ec2-tipo")?.addEventListener("change", () =>
+  actualizarLabelDescuentoCombo("ec2-tipo", "ec2-descuento-label"));
+
 document.getElementById("btn-agregar-producto-combo")?.addEventListener("click", () => {
   crearFilaProductoCombo("combo-productos-lista");
 });
@@ -1423,6 +1436,7 @@ document.getElementById("form-nuevo-combo")?.addEventListener("submit", async (e
 
   const nombre = document.getElementById("combo-nombre").value.trim();
   const descripcion = document.getElementById("combo-descripcion").value.trim();
+  const tipo = document.getElementById("combo-tipo").value;
   const descuento = parseFloat(document.getElementById("combo-descuento").value);
   const activo = document.getElementById("combo-activo").checked;
   const productos = leerProductosDeCombo("combo-productos-lista");
@@ -1435,7 +1449,7 @@ document.getElementById("form-nuevo-combo")?.addEventListener("submit", async (e
   }
 
   try {
-    await addDoc(collection(db, "combos"), { nombre, descripcion, descuento, productos, activo });
+    await addDoc(collection(db, "combos"), { nombre, descripcion, tipo, descuento, productos, activo });
     document.getElementById("form-nuevo-combo").reset();
     document.getElementById("combo-productos-lista").innerHTML = "";
   } catch (err) {
@@ -1482,7 +1496,8 @@ function renderListaCombos() {
       const prod = productosCache.find(x => x.id === p.productoId);
       return prod ? `${p.cantidad}x ${prod.nombre}` : `${p.cantidad}x (producto eliminado)`;
     }).join(" + ");
-    meta.textContent = `${c.descuento}% off · ${productosTexto}`;
+    const tipoTexto = c.tipo === 'monto' ? `$${c.descuento}` : `${c.descuento}%`;
+    meta.textContent = `${tipoTexto} off · ${productosTexto}`;
     info.appendChild(meta);
 
     if (c.descripcion) {
@@ -1527,7 +1542,9 @@ function abrirModalEditarCombo(c) {
   document.getElementById("ec2-id").value = c.id;
   document.getElementById("ec2-nombre").value = c.nombre;
   document.getElementById("ec2-descripcion").value = c.descripcion || "";
+  document.getElementById("ec2-tipo").value = c.tipo || "porcentaje";
   document.getElementById("ec2-descuento").value = c.descuento;
+  actualizarLabelDescuentoCombo("ec2-tipo", "ec2-descuento-label");
   document.getElementById("ec2-activo").checked = !!c.activo;
   document.getElementById("editar-combo-error").textContent = "";
 
@@ -1554,6 +1571,7 @@ document.getElementById("form-editar-combo")?.addEventListener("submit", async (
   const id = document.getElementById("ec2-id").value;
   const nombre = document.getElementById("ec2-nombre").value.trim();
   const descripcion = document.getElementById("ec2-descripcion").value.trim();
+  const tipo = document.getElementById("ec2-tipo").value;
   const descuento = parseFloat(document.getElementById("ec2-descuento").value);
   const activo = document.getElementById("ec2-activo").checked;
   const productos = leerProductosDeCombo("ec2-productos-lista");
@@ -1565,7 +1583,7 @@ document.getElementById("form-editar-combo")?.addEventListener("submit", async (
   }
 
   try {
-    await updateDoc(doc(db, "combos", id), { nombre, descripcion, descuento, productos, activo });
+    await updateDoc(doc(db, "combos", id), { nombre, descripcion, tipo, descuento, productos, activo });
     document.getElementById("modal-editar-combo").classList.add("hidden");
   } catch (err) {
     console.error(err);
