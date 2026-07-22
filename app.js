@@ -171,12 +171,19 @@ function obtenerCombosAplicados() {
         return acc + item.precioUnitario * cantidad;
       }, 0);
       const tipoCombo = combo.tipo || "porcentaje";
-      const cantCombos = cantidadCombosSeleccionados.get(combo.id) || 1;
+      // Cuántos combos completos puede armar realmente con lo que tiene en el carrito
+      const combosReales = Math.floor(Math.min(...productos.map(({ productoId, cantidad }) => {
+        const itemCarrito = carrito[productoId];
+        return itemCarrito ? itemCarrito.cantidad / cantidad : 0;
+      })));
+      // Cuántos eligió el cliente (no puede superar los combos reales posibles)
+      const cantElegida = cantidadCombosSeleccionados.get(combo.id) || 1;
+      const cantCombos = Math.min(cantElegida, combosReales);
       const montoDescuentoUnitario = tipoCombo === "monto"
         ? Math.min(combo.descuento, base)
         : Math.round(base * Math.min(combo.descuento, 100) / 100 * 100) / 100;
       const montoDescuento = Math.round(montoDescuentoUnitario * cantCombos * 100) / 100;
-      combosAplicados.push({ ...combo, base, porcentaje: combo.descuento, montoDescuento, cantCombos });
+      combosAplicados.push({ ...combo, base, porcentaje: combo.descuento, montoDescuento, cantCombos, combosReales });
     }
   }
   return combosAplicados;
@@ -344,8 +351,15 @@ function renderSeccionCombos() {
     progreso.appendChild(barra);
     const progresoTexto = document.createElement("span");
     progresoTexto.className = "combo-card__progreso-texto";
+    // Calcular combos reales posibles para mostrar en el texto
+    const combosRealesDisp = completo ? Math.floor(Math.min(...productos.map(({ productoId, cantidad }) => {
+      const it = carrito[productoId];
+      return it ? it.cantidad / cantidad : 0;
+    }))) : 0;
+    const cantElegidaDisp = cantidadCombosSeleccionados.get(combo.id) || 1;
+    const combosEfectivos = Math.min(cantElegidaDisp, combosRealesDisp);
     progresoTexto.textContent = completo
-      ? `✓ Combo completo — descuento de ${fmt.format(montoDescuentoCombo)} aplicado`
+      ? `✓ ${combosEfectivos} combo${combosEfectivos > 1 ? "s" : ""} — descuento de ${fmt.format(montoDescuentoCombo * combosEfectivos)} aplicado`
       : `${itemsEnCarrito} de ${productos.length} productos en tu carrito`;
     progreso.appendChild(progresoTexto);
     card.appendChild(progreso);
