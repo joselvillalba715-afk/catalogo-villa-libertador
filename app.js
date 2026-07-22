@@ -930,17 +930,7 @@ function renderCard(p) {
   else { const ph = document.createElement("div"); ph.className = "product-card__img-placeholder"; const phText = document.createElement("span"); phText.textContent = p.nombre; ph.appendChild(phText); imgWrap.appendChild(ph); }
   if (p.promo && p.enStock !== false) { const stamp = document.createElement("span"); stamp.className = "promo-stamp"; stamp.textContent = "Oferta"; imgWrap.appendChild(stamp); }
 
-  // Badge de combo si el producto forma parte de un combo activo
-  const combosConEsteProducto = todosLosCombos.filter(c =>
-    c.activo && (c.productos || []).some(pr => pr.productoId === p.id)
-  );
-  if (combosConEsteProducto.length > 0 && p.enStock !== false) {
-    const comboBadge = document.createElement("span");
-    comboBadge.className = "combo-badge-tarjeta";
-    comboBadge.textContent = "🎁 Combo";
-    comboBadge.title = combosConEsteProducto.map(c => c.nombre).join(", ");
-    imgWrap.appendChild(comboBadge);
-  }
+
   card.appendChild(imgWrap);
   const body = document.createElement("div"); body.className = "product-card__body";
   const metaWrap = document.createElement("div"); metaWrap.className = "product-card__meta";
