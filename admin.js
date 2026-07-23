@@ -592,7 +592,10 @@ function renderPedidos() {
       const combosDetalle = document.createElement("p");
       combosDetalle.className = "helper-text";
       combosDetalle.style.marginBottom = "10px";
-      combosDetalle.innerHTML = `<strong>Combos aplicados:</strong> ${pedido.combosAplicados.map(c => `${c.nombre} (−${fmt.format(c.descuento)})`).join(", ")}`;
+      combosDetalle.innerHTML = `<strong>Combos aplicados:</strong> ${pedido.combosAplicados.map(c => {
+        const monto = c.monto ?? c.descuento ?? 0;
+        return isNaN(monto) || monto === 0 ? c.nombre : `${c.nombre} (−${fmt.format(monto)})`;
+      }).join(", ")}`;
       detail.appendChild(combosDetalle);
     }
     if (pedido.observaciones) {
