@@ -924,6 +924,14 @@ function renderCatalogo(productos) {
   }
   const categorias = new Map();
   for (const p of productos) { const cat = p.categoria || "Otros"; if (!categorias.has(cat)) categorias.set(cat, []); categorias.get(cat).push(p); }
+  // Ordenar cada categoría: con stock primero, sin stock al final
+  for (const [cat, items] of categorias.entries()) {
+    items.sort((a, b) => {
+      const aStock = a.enStock !== false ? 0 : 1;
+      const bStock = b.enStock !== false ? 0 : 1;
+      return aStock - bStock;
+    });
+  }
   elCatalogo.innerHTML = "";
   tarjetasRegistradas.clear();
   for (const [cat, items] of categorias.entries()) {
