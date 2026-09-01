@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Preventista — Distribuidora Villa Libertador</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .prev-topbar {
+      background: #1a3a6b;
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .prev-topbar__info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .prev-topbar__nombre {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .prev-topbar__rol {
+      font-size: 0.75rem;
+      background: rgba(255,255,255,0.2);
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .prev-topbar__actions {
+      display: flex;
+      gap: 8px;
+    }
+    .prev-btn-resumen {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .prev-btn-resumen:hover { background: rgba(255,255,255,0.25); }
+
+    /* Panel de resumen */
+    .prev-resumen {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 60;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .prev-resumen__card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 700px;
+      width: 100%;
+      margin-top: 20px;
+    }
+    .prev-resumen__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .prev-resumen__titulo {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      color: #1a3a6b;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 0;
+    }
+    .prev-filtros {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .prev-filtros .field { margin: 0; flex: 1; min-width: 130px; }
+    .prev-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .prev-stat {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+    .prev-stat__valor {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #1a3a6b;
+    }
+    .prev-stat__label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .prev-pedidos-lista {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+    .caja-login-prev {
+      max-width: 360px;
+      width: 90%;
+      margin: 80px auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 22px;
+      box-sizing: border-box;
+    }
+    .caja-login-prev h1 {
+      font-family: var(--font-display);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 1.2rem;
+      color: #1a3a6b;
+      margin: 0 0 6px;
+      text-align: center;
+    }
+    .caja-login-prev .subtitulo {
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* Agenda */
+    .agenda-tab {
+      background: none;
+      border: none;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+    }
+    .agenda-tab--active { color: #1a3a6b; border-bottom-color: #1a3a6b; }
+    .agenda-cliente-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      flex-wrap: wrap;
+    }
+    .agenda-cliente-info { flex: 1; min-width: 0; }
+    .agenda-cliente-nombre { font-weight: 600; font-size: 0.88rem; margin: 0; }
+    .agenda-cliente-sub { font-size: 0.75rem; color: var(--muted); margin: 0; }
+    .agenda-dia-select {
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.82rem;
+      background: var(--surface);
+      min-width: 110px;
+    }
+    .agenda-excep-btn {
+      background: none;
+      border: 1px solid #1a3a6b;
+      color: #1a3a6b;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .agenda-hoy-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      gap: 10px;
+    }
+    .agenda-hoy-card--visitado { opacity: 0.5; border-color: #2d7a4f; background: #f3faf1; }
+    .agenda-dia-label {
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #1a3a6b;
+      letter-spacing: 0.5px;
+      margin: 0 0 6px;
+    }
+    .agenda-inactivo-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: #fff8e1;
+      border: 1px solid #f2c14e;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .agenda-inactivo-dias {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      color: #b8860b;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div class="caja-login-prev" id="prev-login-card">
+    <h1>Preventista</h1>
+    <p class="subtitulo">Distribuidora Villa Libertador</p>
+    <form id="prev-login-form">
+      <div class="field">
+        <label for="prev-email">Email</label>
+        <input type="email" id="prev-email" required autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="prev-password">Contraseña</label>
+        <input type="password" id="prev-password" required autocomplete="current-password" />
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" style="background:#1a3a6b;">Ingresar</button>
+      <p class="error-text" id="prev-login-error"></p>
+    </form>
+  </div>
+
+  <!-- APP PREVENTISTA -->
+  <div id="prev-app" class="hidden">
+
+    <!-- Topbar -->
+    <div class="prev-topbar">
+      <div class="prev-topbar__info">
+        <span class="prev-topbar__nombre" id="prev-nombre-display">Preventista</span>
+        <span class="prev-topbar__rol">Preventista</span>
+      </div>
+      <div class="prev-topbar__actions">
+        <button type="button" class="prev-btn-resumen" id="prev-btn-agenda">📅 Agenda</button>
+        <button type="button" class="prev-btn-resumen" id="prev-btn-resumen">📊 Mis pedidos</button>
+        <button type="button" class="prev-btn-resumen" id="prev-btn-logout">Salir</button>
+      </div>
+    </div>
+
+    <!-- Banner -->
+    <div class="main-banner">
+      <img src="images /banner-distribuidora.png" alt="Distribuidora Villa Libertador" class="banner-img" />
+    </div>
+
+    <!-- Buscador -->
+    <div class="search-bar">
+      <div class="search-bar__inner">
+        <input type="search" id="prev-buscador" class="search-bar__input" placeholder="Buscar producto…" autocomplete="off" />
+      </div>
+    </div>
+
+    <!-- Categorías -->
+    <nav class="cat-nav" id="prev-cat-nav-wrap">
+      <div class="cat-nav__inner">
+        <select id="prev-cat-nav" class="cat-selector__dropdown">
+          <option value="">Todas las categorías</option>
+        </select>
+      </div>
+    </nav>
+
+    <!-- Catálogo -->
+    <main id="prev-catalogo">
+      <p class="state-message" id="prev-estado">Cargando catálogo…</p>
+    </main>
+
+    <!-- Botón carrito -->
+    <button class="cart-float" id="prev-cart-float" aria-label="Ver pedido" type="button" style="background:#1a3a6b;">
+      <span class="cart-float__icon">🛒</span>
+      <span class="cart-float__label">Pedido</span>
+      <span class="cart-float__badge hidden" id="prev-cart-badge">0</span>
+    </button>
+
+    <!-- Carrito drawer -->
+    <div class="cart-backdrop hidden" id="prev-cart-backdrop">
+      <div class="cart-drawer" role="dialog">
+        <div class="cart-drawer__header" style="background:#f0f4ff;">
+          <h2 id="prev-cart-title" style="color:#1a3a6b;">Pedido del cliente</h2>
+          <button class="icon-btn" id="prev-cart-close" type="button">Cerrar</button>
+        </div>
+
+        <div id="prev-cart-view-items">
+          <div class="cart-drawer__body" id="prev-cart-items"></div>
+          <div class="cart-drawer__footer" id="prev-cart-footer"></div>
+        </div>
+
+        <div id="prev-cart-view-datos" class="hidden">
+          <div class="cart-drawer__body">
+            <p class="helper-text">Buscá el cliente o dalo de alta si no está registrado:</p>
+
+            <!-- Buscador de cliente -->
+            <div class="field" style="position:relative;">
+              <label for="prev-buscar-cliente">Buscar cliente</label>
+              <input type="text" id="prev-buscar-cliente" placeholder="Nombre o número de cliente..." autocomplete="off" />
+              <div id="prev-clientes-sugerencias" style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid var(--border); border-radius:0 0 8px 8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:50; max-height:200px; overflow-y:auto;"></div>
+            </div>
+
+            <!-- Cliente seleccionado -->
+            <div id="prev-cliente-seleccionado" style="display:none; background:#f0f4ff; border:1.5px solid #1a3a6b; border-radius:8px; padding:10px 12px; margin-bottom:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                  <p style="font-weight:700; font-size:0.9rem; margin:0 0 2px;" id="prev-cs-nombre"></p>
+                  <p style="font-size:0.78rem; color:var(--muted); margin:0 0 1px;" id="prev-cs-direccion"></p>
+                  <p style="font-size:0.78rem; color:var(--muted); margin:0;" id="prev-cs-telefono"></p>
+                </div>
+                <button type="button" id="prev-btn-cambiar-cliente" style="font-size:0.72rem; color:#1a3a6b; background:none; border:none; text-decoration:underline; cursor:pointer; white-space:nowrap; padding-top:2px;">Cambiar</button>
+              </div>
+            </div>
+
+            <!-- Botón dar de alta -->
+            <div id="prev-btn-alta-wrap" style="display:none; margin-bottom:12px;">
+              <p style="font-size:0.82rem; color:var(--ink-soft); margin:0 0 6px;">No se encontró el cliente.</p>
+              <button type="button" id="prev-btn-dar-alta" class="btn btn-secondary" style="width:100%;">+ Dar de alta cliente nuevo</button>
+            </div>
+
+            <!-- Formulario de alta rápida -->
+            <div id="prev-form-alta-cliente" style="display:none; background:var(--bg); border-radius:8px; padding:12px; margin-bottom:12px; border:1px solid var(--border);">
+              <p style="font-weight:700; font-size:0.85rem; margin:0 0 10px; color:#1a3a6b;">Alta de nuevo cliente</p>
+              <div class="field">
+                <label for="prev-alta-nombre">Nombre / Razón social</label>
+                <input type="text" id="prev-alta-nombre" placeholder="Ej: Kiosco Don Pedro" />
+              </div>
+              <div class="field">
+                <label for="prev-alta-numero">Número de cliente</label>
+                <input type="text" id="prev-alta-numero" placeholder="Ej: 10206" />
+              </div>
+              <div class="field">
+                <label for="prev-alta-telefono">Teléfono / WhatsApp</label>
+                <input type="tel" id="prev-alta-telefono" placeholder="Ej: 3517123456" />
+              </div>
+              <div class="field">
+                <label for="prev-alta-direccion">Dirección</label>
+                <input type="text" id="prev-alta-direccion" placeholder="Ej: Av. Colón 1234" />
+              </div>
+              <p class="error-text" id="prev-alta-error"></p>
+              <div style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-secondary" id="prev-btn-cancelar-alta" style="flex:1;">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="prev-btn-guardar-alta" style="flex:1; background:#1a3a6b;">Guardar cliente</button>
+              </div>
+            </div>
+
+            <form id="prev-form-datos">
+              <div class="field">
+                <label for="prev-cliente-pago">Forma de pago</label>
+                <select id="prev-cliente-pago" required>
+                  <option value="" disabled selected>Elegí una opción</option>
+                  <option value="Efectivo">Efectivo</option>
+                  <option value="QR">QR</option>
+                  <option value="Transferencia">Transferencia</option>
+                  <option value="Crédito">Crédito (cuenta corriente)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="prev-cliente-obs">Observaciones (opcional)</label>
+                <textarea id="prev-cliente-obs" rows="2" placeholder="Ej: Entregar el jueves"></textarea>
+              </div>
+              <p class="error-text" id="prev-datos-error"></p>
+            </form>
+          </div>
+          <div class="cart-drawer__footer">
+            <button type="submit" form="prev-form-datos" class="btn btn-primary btn-block" id="prev-btn-confirmar" style="background:#1a3a6b;">
+              Confirmar pedido
+            </button>
+            <button type="button" class="btn btn-secondary btn-block" id="prev-btn-volver">Volver al pedido</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Panel de resumen -->
+    <div class="prev-resumen hidden" id="prev-resumen">
+      <div class="prev-resumen__card">
+        <div class="prev-resumen__header">
+          <h2 class="prev-resumen__titulo">Mis pedidos</h2>
+          <button type="button" class="icon-btn" id="prev-btn-cerrar-resumen">✕</button>
+        </div>
+
+        <div class="prev-filtros">
+          <div class="field">
+            <label for="prev-filtro-desde">Desde</label>
+            <input type="date" id="prev-filtro-desde" />
+          </div>
+          <div class="field">
+            <label for="prev-filtro-hasta">Hasta</label>
+            <input type="date" id="prev-filtro-hasta" />
+          </div>
+          <button type="button" class="btn btn-secondary" id="prev-btn-limpiar-filtros">Limpiar</button>
+        </div>
+
+        <div class="prev-stats" id="prev-stats"></div>
+
+        <div class="prev-pedidos-lista" id="prev-pedidos-lista"></div>
+      </div>
+    </div>
+
+    <!-- Panel de agenda -->
+    <div class="prev-resumen hidden" id="prev-agenda-panel">
+      <div class="prev-resumen__card" style="max-width:800px;">
+        <div class="prev-resumen__header">
+          <h2 class="prev-resumen__titulo">📅 Mi Agenda</h2>
+          <button type="button" class="icon-btn" id="prev-btn-cerrar-agenda">✕</button>
+        </div>
+
+        <!-- Tabs de agenda -->
+        <div style="display:flex; gap:0; margin-bottom:16px; border-bottom:2px solid var(--border);">
+          <button type="button" class="agenda-tab agenda-tab--active" data-tab="hoy">Hoy</button>
+          <button type="button" class="agenda-tab" data-tab="semana">Esta semana</button>
+          <button type="button" class="agenda-tab" data-tab="asignar">Asignar días</button>
+          <button type="button" class="agenda-tab" data-tab="inactivos">⚠ Inactivos</button>
+        </div>
+
+        <!-- Tab: Hoy -->
+        <div id="agenda-tab-hoy">
+          <p class="helper-text" id="agenda-hoy-fecha"></p>
+          <div id="agenda-hoy-lista"></div>
+        </div>
+
+        <!-- Tab: Esta semana -->
+        <div id="agenda-tab-semana" class="hidden">
+          <div id="agenda-semana-contenido"></div>
+        </div>
+
+        <!-- Tab: Asignar días -->
+        <div id="agenda-tab-asignar" class="hidden">
+          <p class="helper-text">Asigná un día de la semana a cada cliente. También podés programar una visita excepcional en una fecha puntual.</p>
+          <div class="field">
+            <input type="text" id="agenda-buscar-cliente" placeholder="Buscar cliente por nombre..." autocomplete="off" style="width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:8px; font-size:0.9rem; background:var(--bg);" />
+          </div>
+          <div id="agenda-clientes-lista" style="display:flex; flex-direction:column; gap:8px; max-height:55vh; overflow-y:auto;"></div>
+        </div>
+
+        <!-- Tab: Inactivos -->
+        <div id="agenda-tab-inactivos" class="hidden">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+            <span style="font-size:0.85rem; color:var(--ink-soft);">Mostrar clientes sin comprar en los últimos</span>
+            <input type="number" id="agenda-dias-inactivo" value="30" min="1" max="365" style="width:70px; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-size:0.88rem;" />
+            <span style="font-size:0.85rem; color:var(--ink-soft);">días</span>
+            <button type="button" class="btn btn-secondary" id="btn-buscar-inactivos" style="padding:7px 14px; font-size:0.82rem;">Buscar</button>
+          </div>
+          <div id="agenda-inactivos-lista"></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- fin prev-app -->
+  <script type="module" src="preventista.js"></script>
+</body>
+</html>
