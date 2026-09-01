@@ -21,6 +21,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   getStorage,
@@ -1643,6 +1644,7 @@ document.getElementById("btn-crear-preventista")?.addEventListener("click", asyn
   const pass = document.getElementById("prev-nuevo-pass").value;
 
   if (!nombre || !email || !pass) { errorEl.textContent = "Completá todos los campos."; return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = "El email no tiene un formato válido."; return; }
   if (pass.length < 6) { errorEl.textContent = "La contraseña debe tener al menos 6 caracteres."; return; }
 
   const btn = document.getElementById("btn-crear-preventista");
