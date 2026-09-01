@@ -166,8 +166,9 @@ const tabCatalogo = document.getElementById("tab-catalogo");
 const tabPedidos = document.getElementById("tab-pedidos");
 const tabCupones = document.getElementById("tab-cupones");
 const tabCombos = document.getElementById("tab-combos");
+const tabEquipo = document.getElementById("tab-equipo");
 
-const tabsPorNombre = { catalogo: tabCatalogo, pedidos: tabPedidos, cupones: tabCupones, combos: tabCombos };
+const tabsPorNombre = { catalogo: tabCatalogo, pedidos: tabPedidos, cupones: tabCupones, combos: tabCombos, equipo: tabEquipo };
 
 adminTabs.forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -870,6 +871,8 @@ onAuthStateChanged(auth, (user) => {
     cargarMinimoGeneral();
     cargarPopup();
     iniciarSuscripcionCombos();
+    iniciarSuscripcionEquipo();
+    iniciarSuscripcionAgendas();
 
     if (!suscripcionProductos) {
       const productosQuery = query(collection(db, "productos"), orderBy("categoria"), orderBy("orden"));
@@ -898,8 +901,8 @@ onAuthStateChanged(auth, (user) => {
     }
 
   } else {
-    [suscripcionProductos, suscripcionPedidos, suscripcionCupones, suscripcionCombos].forEach((unsub) => { if (unsub) unsub(); });
-    suscripcionProductos = null; suscripcionPedidos = null; suscripcionCupones = null; suscripcionCombos = null;
+    [suscripcionProductos, suscripcionPedidos, suscripcionCupones, suscripcionCombos, suscripcionPreventistas, suscripcionPedidosPreventistas].forEach((unsub) => { if (unsub) unsub(); });
+    suscripcionProductos = null; suscripcionPedidos = null; suscripcionCupones = null; suscripcionCombos = null; suscripcionPreventistas = null; suscripcionPedidosPreventistas = null;
     if (adminShell) adminShell.classList.add("hidden");
     if (loginCard) loginCard.classList.remove("hidden");
   }
@@ -1593,3 +1596,336 @@ document.getElementById("form-editar-combo")?.addEventListener("submit", async (
     error.textContent = "No se pudieron guardar los cambios.";
   }
 });
+
+// ============================================================
+// GESTIÓN DE PREVENTISTAS (Pestaña Equipo)
+// ============================================================
+
+let preventistasCache = [];
+let suscripcionPreventistas = null;
+let suscripcionPedidosPreventistas = null;
+let pedidosPreventistasCache = [];
+
+function iniciarSuscripcionEquipo() {
+  if (suscripcionPreventistas) return;
+
+  // Suscripción a usuarios con rol preventista
+  suscripcionPreventistas = onSnapshot(collection(db, "usuarios"), (snapshot) => {
+    preventistasCache = snapshot.docs
+      .map(d => ({ uid: d.id, ...d.data() }))
+      .filter(u => u.rol === "preventista");
+    renderListaPreventistas();
+    actualizarFiltroPreventistas();
+  }, err => console.error("Error en usuarios:", err));
+
+  // Suscripción a pedidos de preventistas
+  suscripcionPedidosPreventistas = onSnapshot(
+    query(collection(db, "pedidos"), orderBy("creadoEn", "desc")),
+    (snapshot) => {
+      pedidosPreventistasCache = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(p => p.preventista);
+      renderPedidosPreventistas();
+    },
+    err => console.error("Error en pedidos preventistas:", err)
+  );
+}
+
+// Crear nuevo preventista
+document.getElementById("btn-crear-preventista")?.addEventListener("click", async () => {
+  const errorEl = document.getElementById("prev-crear-error");
+  const okEl = document.getElementById("prev-crear-ok");
+  errorEl.textContent = "";
+  okEl.classList.add("hidden");
+
+  const nombre = document.getElementById("prev-nuevo-nombre").value.trim();
+  const email = document.getElementById("prev-nuevo-email").value.trim().toLowerCase();
+  const pass = document.getElementById("prev-nuevo-pass").value;
+
+  if (!nombre || !email || !pass) { errorEl.textContent = "Completá todos los campos."; return; }
+  if (pass.length < 6) { errorEl.textContent = "La contraseña debe tener al menos 6 caracteres."; return; }
+
+  const btn = document.getElementById("btn-crear-preventista");
+  btn.disabled = true; btn.textContent = "Creando…";
+
+  try {
+    // Crear usuario en Firebase Auth
+    const credencial = await createUserWithEmailAndPassword(auth, email, pass);
+    const uid = credencial.user.uid;
+
+    // Guardar perfil en Firestore
+    await setDoc(doc(db, "usuarios", uid), {
+      nombre, email, rol: "preventista", creadoEn: serverTimestamp(),
+    });
+
+    // También agregar a emailsAutorizados para que pueda registrarse si fuera necesario
+    await setDoc(doc(db, "emailsAutorizados", email), { preventista: true });
+
+    document.getElementById("prev-nuevo-nombre").value = "";
+    document.getElementById("prev-nuevo-email").value = "";
+    document.getElementById("prev-nuevo-pass").value = "";
+    okEl.classList.remove("hidden");
+    setTimeout(() => okEl.classList.add("hidden"), 4000);
+  } catch (err) {
+    console.error(err);
+    if (err.code === "auth/email-already-in-use") {
+      errorEl.textContent = "Ya existe una cuenta con ese email.";
+    } else {
+      errorEl.textContent = "No se pudo crear el preventista. Probá de nuevo.";
+    }
+  } finally {
+    btn.disabled = false; btn.textContent = "Crear acceso";
+  }
+});
+
+function renderListaPreventistas() {
+  const lista = document.getElementById("prev-lista");
+  const vacio = document.getElementById("prev-lista-vacia");
+  if (!lista) return;
+  lista.innerHTML = "";
+  if (vacio) vacio.classList.toggle("hidden", preventistasCache.length > 0);
+
+  for (const prev of preventistasCache) {
+    const pedidosPrev = pedidosPreventistasCache.filter(p => p.preventista === prev.uid);
+    const row = document.createElement("div"); row.className = "admin-product-row";
+    const info = document.createElement("div"); info.className = "admin-product-row__info";
+    const name = document.createElement("p"); name.className = "admin-product-row__name"; name.textContent = prev.nombre || prev.email; info.appendChild(name);
+    const meta = document.createElement("p"); meta.className = "admin-product-row__meta";
+    meta.textContent = `${prev.email} · ${pedidosPrev.length} pedidos tomados`;
+    info.appendChild(meta);
+    row.appendChild(info);
+    lista.appendChild(row);
+  }
+}
+
+function actualizarFiltroPreventistas() {
+  const select = document.getElementById("prev-filtro-vendedor");
+  if (!select) return;
+  const valorActual = select.value;
+  select.innerHTML = `<option value="">Todos los preventistas</option>`;
+  for (const prev of preventistasCache) {
+    const opt = document.createElement("option");
+    opt.value = prev.uid;
+    opt.textContent = prev.nombre || prev.email;
+    select.appendChild(opt);
+  }
+  if (valorActual) select.value = valorActual;
+}
+
+function renderPedidosPreventistas() {
+  const filtroVendedor = document.getElementById("prev-filtro-vendedor")?.value || "";
+  const desde = document.getElementById("prev-filtro-admin-desde")?.value;
+  const hasta = document.getElementById("prev-filtro-admin-hasta")?.value;
+
+  let filtrados = pedidosPreventistasCache;
+  if (filtroVendedor) filtrados = filtrados.filter(p => p.preventista === filtroVendedor);
+  if (desde) filtrados = filtrados.filter(p => {
+    const f = p.creadoEn?.toDate ? p.creadoEn.toDate() : null;
+    return f && f >= new Date(desde + "T00:00:00");
+  });
+  if (hasta) filtrados = filtrados.filter(p => {
+    const f = p.creadoEn?.toDate ? p.creadoEn.toDate() : null;
+    return f && f <= new Date(hasta + "T23:59:59");
+  });
+
+  // Stats
+  const totalVendido = filtrados.reduce((acc, p) => acc + (p.total || 0), 0);
+  const statsEl = document.getElementById("prev-stats-admin");
+  if (statsEl) {
+    statsEl.innerHTML = `
+      <div class="prev-stat" style="background:var(--bg); border-radius:10px; padding:14px; text-align:center;">
+        <div style="font-family:var(--font-display); font-size:1.3rem; font-weight:700; color:#1a3a6b;">${filtrados.length}</div>
+        <div style="font-size:0.75rem; color:var(--muted);">Pedidos</div>
+      </div>
+      <div class="prev-stat" style="background:var(--bg); border-radius:10px; padding:14px; text-align:center;">
+        <div style="font-family:var(--font-display); font-size:1.1rem; font-weight:700; color:#1a3a6b;">${fmt.format(totalVendido)}</div>
+        <div style="font-size:0.75rem; color:var(--muted);">Total vendido</div>
+      </div>
+    `;
+  }
+
+  // Lista
+  const lista = document.getElementById("prev-pedidos-admin");
+  if (!lista) return;
+  lista.innerHTML = "";
+  if (filtrados.length === 0) { lista.innerHTML = `<p class="helper-text">No hay pedidos para mostrar.</p>`; return; }
+
+  for (const pedido of filtrados) {
+    const card = document.createElement("div"); card.className = "order-card";
+    if (pedido.procesado) card.classList.add("order-card--procesado");
+    const header = document.createElement("button"); header.type = "button"; header.className = "order-card__header";
+    const info = document.createElement("div"); info.className = "order-card__header-info";
+    const fecha = pedido.creadoEn?.toDate ? pedido.creadoEn.toDate() : null;
+    const fechaStr = fecha ? `${fecha.toLocaleDateString("es-AR")} · ${fecha.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}` : "—";
+    const prevNombre = preventistasCache.find(p => p.uid === pedido.preventista)?.nombre || pedido.preventistaNombre || "—";
+    info.innerHTML = `<span class="order-card__datetime">${fechaStr} · 👤 ${prevNombre}</span><span class="order-card__client">${pedido.clienteNombre || "Sin nombre"} · ${pedido.clienteWhatsapp || ""}</span>`;
+    header.appendChild(info);
+    const total = document.createElement("span"); total.className = "order-card__total"; total.textContent = fmt.format(pedido.total || 0); header.appendChild(total);
+    const chevron = document.createElement("span"); chevron.className = "order-card__chevron"; chevron.textContent = "▾"; header.appendChild(chevron);
+
+    const detail = document.createElement("div"); detail.className = "order-card__detail hidden";
+    if (pedido.formaPago) { const p = document.createElement("p"); p.className = "helper-text"; p.innerHTML = `<strong>Forma de pago:</strong> ${pedido.formaPago}`; detail.appendChild(p); }
+    if (pedido.observaciones) { const p = document.createElement("p"); p.className = "helper-text"; p.innerHTML = `<strong>Observaciones:</strong> ${pedido.observaciones}`; detail.appendChild(p); }
+    const tabla = document.createElement("table"); tabla.className = "order-detail-table";
+    tabla.innerHTML = `<thead><tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead>`;
+    const tbody = document.createElement("tbody");
+    (pedido.items || []).forEach(it => { const tr = document.createElement("tr"); tr.innerHTML = `<td>${it.nombre}</td><td>${it.cantidad}</td><td>${fmt.format(it.precioUnitario)}</td><td>${fmt.format(it.subtotal)}</td>`; tbody.appendChild(tr); });
+    tabla.appendChild(tbody); detail.appendChild(tabla);
+
+    const acciones = document.createElement("div"); acciones.style.cssText = "display:flex; gap:8px; margin-top:10px;";
+    const btnWA = document.createElement("a"); btnWA.className = "btn btn-secondary"; btnWA.textContent = "WhatsApp";
+    btnWA.href = `https://wa.me/${pedido.clienteWhatsapp}`; btnWA.target = "_blank"; btnWA.rel = "noopener";
+    acciones.appendChild(btnWA);
+    const btnEliminar = document.createElement("button"); btnEliminar.type = "button"; btnEliminar.className = "btn btn-danger"; btnEliminar.textContent = "Eliminar";
+    btnEliminar.addEventListener("click", async () => {
+      if (!confirm(`¿Eliminar el pedido de "${pedido.clienteNombre}"?`)) return;
+      try { await deleteDoc(doc(db, "pedidos", pedido.id)); }
+      catch (err) { console.error(err); alert("No se pudo eliminar."); }
+    });
+    acciones.appendChild(btnEliminar);
+    detail.appendChild(acciones);
+
+    header.addEventListener("click", () => { detail.classList.toggle("hidden"); chevron.textContent = detail.classList.contains("hidden") ? "▾" : "▴"; });
+    card.appendChild(header); card.appendChild(detail); lista.appendChild(card);
+  }
+}
+
+// Listeners de filtros de equipo
+document.getElementById("prev-filtro-vendedor")?.addEventListener("change", renderPedidosPreventistas);
+document.getElementById("prev-filtro-admin-desde")?.addEventListener("change", renderPedidosPreventistas);
+document.getElementById("prev-filtro-admin-hasta")?.addEventListener("change", renderPedidosPreventistas);
+
+// Iniciar suscripción al loguearse (agregar a la función onAuthStateChanged existente)
+// Se llama desde el bloque de onAuthStateChanged
+
+// ============================================================
+// AGENDA ADMIN — VER Y GESTIONAR AGENDA DE PREVENTISTAS
+// ============================================================
+
+const DIAS_ADMIN = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+let agendasCache = {}; // preventistaId → { clientes: {...} }
+let suscripcionAgendas = null;
+
+function iniciarSuscripcionAgendas() {
+  if (suscripcionAgendas) return;
+  suscripcionAgendas = onSnapshot(collection(db, "agenda_preventista"), (snapshot) => {
+    agendasCache = {};
+    snapshot.docs.forEach(d => {
+      const data = d.data();
+      agendasCache[data.preventistaId] = { id: d.id, ...data };
+    });
+    renderAgendaAdmin();
+    renderInactivosAdmin();
+    actualizarSelectoresAgendaAdmin();
+  }, err => console.error("Error agendas:", err));
+}
+
+function actualizarSelectoresAgendaAdmin() {
+  ["admin-agenda-preventista","admin-inactivos-preventista"].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = id === "admin-agenda-preventista"
+      ? `<option value="">Seleccioná un preventista</option>`
+      : `<option value="">Todos</option>`;
+    preventistasCache.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.uid; opt.textContent = p.nombre || p.email;
+      sel.appendChild(opt);
+    });
+    if (prev) sel.value = prev;
+  });
+}
+
+function renderAgendaAdmin() {
+  const el = document.getElementById("admin-agenda-contenido");
+  const prevId = document.getElementById("admin-agenda-preventista")?.value;
+  const diaFiltro = document.getElementById("admin-agenda-dia")?.value;
+  if (!el || !prevId) { if (el) el.innerHTML = `<p class="helper-text">Seleccioná un preventista.</p>`; return; }
+
+  const agenda = agendasCache[prevId];
+  if (!agenda) { el.innerHTML = `<p class="helper-text">Este preventista no tiene agenda configurada todavía.</p>`; return; }
+
+  const clientes = agenda.clientes || {};
+  const diasAMostrar = diaFiltro ? [parseInt(diaFiltro)] : [1,2,3,4,5,6];
+  el.innerHTML = "";
+
+  diasAMostrar.forEach(dia => {
+    const clientesDia = Object.entries(clientes)
+      .filter(([, cfg]) => cfg.diaSemana === dia)
+      .map(([cid]) => productosCache.find ? null : ({ id: cid })); // buscar en clientes_reparto
+
+    // Buscar clientes de la agenda en clientes_reparto via admin — usamos preventistasCache como proxy
+    // Mostramos los datos que tengamos disponibles
+    const seccion = document.createElement("div"); seccion.style.marginBottom = "14px;";
+    const titulo = document.createElement("p");
+    titulo.className = "admin-product-row__name";
+    titulo.style.cssText = "font-family:var(--font-display); text-transform:uppercase; color:#1a3a6b; margin:0 0 6px; font-size:0.88rem;";
+    titulo.textContent = DIAS_ADMIN[dia];
+    seccion.appendChild(titulo);
+
+    const clientesDelDia = Object.entries(clientes).filter(([, cfg]) => cfg.diaSemana === dia);
+    if (clientesDelDia.length === 0) {
+      const p = document.createElement("p"); p.className = "helper-text"; p.textContent = "Sin clientes asignados."; seccion.appendChild(p);
+    } else {
+      clientesDelDia.forEach(([cid, cfg]) => {
+        const row = document.createElement("div"); row.className = "admin-product-row";
+        const info = document.createElement("div"); info.className = "admin-product-row__info";
+        info.innerHTML = `<p class="admin-product-row__name">ID: ${cid.slice(0,8)}...</p><p class="admin-product-row__meta">Día base: ${DIAS_ADMIN[cfg.diaSemana] || "—"} · Excepciones: ${(cfg.excepciones||[]).length}</p>`;
+        row.appendChild(info);
+        seccion.appendChild(row);
+      });
+    }
+    el.appendChild(seccion);
+  });
+}
+
+async function renderInactivosAdmin() {
+  const el = document.getElementById("admin-inactivos-contenido");
+  const prevFiltro = document.getElementById("admin-inactivos-preventista")?.value;
+  const dias = parseInt(document.getElementById("admin-inactivos-dias")?.value) || 30;
+  if (!el) return;
+
+  el.innerHTML = `<p class="helper-text">Calculando...</p>`;
+
+  const fechaLimite = new Date();
+  fechaLimite.setDate(fechaLimite.getDate() - dias);
+
+  // Agrupar últimas compras por cliente
+  const ultimasCompras = {}; // clienteNombre → { fecha, preventistaNombre }
+  pedidosPreventistasCache.forEach(p => {
+    const fecha = p.creadoEn?.toDate ? p.creadoEn.toDate() : null;
+    if (!fecha) return;
+    const nombre = (p.clienteNombre || "").toUpperCase();
+    if (!ultimasCompras[nombre] || fecha > ultimasCompras[nombre].fecha) {
+      ultimasCompras[nombre] = { fecha, preventistaNombre: p.preventistaNombre || "—" };
+    }
+  });
+
+  // Filtrar agendas
+  const agendasARevisar = prevFiltro
+    ? (agendasCache[prevFiltro] ? [agendasCache[prevFiltro]] : [])
+    : Object.values(agendasCache);
+
+  const inactivosTodos = [];
+  agendasARevisar.forEach(agenda => {
+    const prevNombre = preventistasCache.find(p => p.uid === agenda.preventistaId)?.nombre || agenda.preventistaNombre || "—";
+    Object.entries(agenda.clientes || {}).forEach(([cid, cfg]) => {
+      if (cfg.diaSemana == null) return;
+      // No tenemos el nombre del cliente directamente — usamos el ID como referencia
+      const ultimaCompra = null; // Sin cruzar con clientes_reparto en el admin por ahora
+      inactivosTodos.push({ cid, cfg, prevNombre, ultimaCompra });
+    });
+  });
+
+  if (inactivosTodos.length === 0) {
+    el.innerHTML = `<p class="helper-text">No hay datos de clientes inactivos para mostrar.</p>`; return;
+  }
+
+  el.innerHTML = `<p class="helper-text">${inactivosTodos.length} clientes en agenda revisados. Para ver inactividad detallada por nombre, usá el panel del preventista.</p>`;
+}
+
+document.getElementById("admin-agenda-preventista")?.addEventListener("change", renderAgendaAdmin);
+document.getElementById("admin-agenda-dia")?.addEventListener("change", renderAgendaAdmin);
+document.getElementById("btn-admin-buscar-inactivos")?.addEventListener("click", renderInactivosAdmin);
+document.getElementById("admin-inactivos-preventista")?.addEventListener("change", renderInactivosAdmin);
