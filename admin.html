@@ -517,6 +517,19 @@
         <label for="prev-nuevo-pass">Contraseña inicial</label>
         <input type="text" id="prev-nuevo-pass" placeholder="Mínimo 6 caracteres" />
       </div>
+
+      <div id="prev-admin-confirm" style="background:#fff8e1; border:1px solid #f2c14e; border-radius:8px; padding:12px; margin-bottom:12px;">
+        <p class="helper-text" style="margin:0 0 8px; color:#7a5c00;">⚠ Para crear el preventista necesitás confirmar tus credenciales de admin (para restaurar tu sesión automáticamente):</p>
+        <div class="field">
+          <label for="admin-confirm-email">Tu email de admin</label>
+          <input type="email" id="admin-confirm-email" autocomplete="username" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label for="admin-confirm-pass">Tu contraseña de admin</label>
+          <input type="password" id="admin-confirm-pass" autocomplete="current-password" />
+        </div>
+      </div>
+
       <button type="button" class="btn btn-primary" id="btn-crear-preventista">Crear acceso</button>
       <p class="error-text" id="prev-crear-error"></p>
       <p class="helper-text hidden" id="prev-crear-ok" style="color:#2d7a4f; margin-top:8px;">✓ Preventista creado correctamente.</p>
