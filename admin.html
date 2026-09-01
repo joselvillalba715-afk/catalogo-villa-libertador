@@ -141,6 +141,7 @@
       <button type="button" class="admin-tab" data-tab="pedidos">Pedidos</button>
       <button type="button" class="admin-tab" data-tab="cupones">Cupones</button>
       <button type="button" class="admin-tab" data-tab="combos">Combos</button>
+      <button type="button" class="admin-tab" data-tab="equipo">Equipo</button>
     </div>
 
     <div id="tab-catalogo">
@@ -497,6 +498,98 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- PESTAÑA EQUIPO -->
+  <div id="tab-equipo" class="hidden" style="padding: 0 0 20px;">
+    <div class="panel">
+      <h2>Agregar preventista</h2>
+      <p class="helper-text">Creá el acceso para un nuevo preventista. Recibirá un email para establecer su contraseña.</p>
+      <div class="field">
+        <label for="prev-nuevo-nombre">Nombre completo</label>
+        <input type="text" id="prev-nuevo-nombre" placeholder="Ej: Juan Pérez" />
+      </div>
+      <div class="field">
+        <label for="prev-nuevo-email">Email</label>
+        <input type="email" id="prev-nuevo-email" placeholder="Ej: juan@gmail.com" />
+      </div>
+      <div class="field">
+        <label for="prev-nuevo-pass">Contraseña inicial</label>
+        <input type="text" id="prev-nuevo-pass" placeholder="Mínimo 6 caracteres" />
+      </div>
+      <button type="button" class="btn btn-primary" id="btn-crear-preventista">Crear acceso</button>
+      <p class="error-text" id="prev-crear-error"></p>
+      <p class="helper-text hidden" id="prev-crear-ok" style="color:#2d7a4f; margin-top:8px;">✓ Preventista creado correctamente.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Preventistas activos</h2>
+      <p class="helper-text" id="prev-lista-vacia">No hay preventistas registrados todavía.</p>
+      <div class="admin-product-list" id="prev-lista"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Agenda de preventistas</h2>
+      <div class="field-row">
+        <div class="field">
+          <label for="admin-agenda-preventista">Preventista</label>
+          <select id="admin-agenda-preventista">
+            <option value="">Seleccioná un preventista</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="admin-agenda-dia">Día de la semana</label>
+          <select id="admin-agenda-dia">
+            <option value="">Todos los días</option>
+            <option value="1">Lunes</option>
+            <option value="2">Martes</option>
+            <option value="3">Miércoles</option>
+            <option value="4">Jueves</option>
+            <option value="5">Viernes</option>
+            <option value="6">Sábado</option>
+          </select>
+        </div>
+      </div>
+      <div id="admin-agenda-contenido" class="orders-list"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Clientes inactivos por preventista</h2>
+      <div class="field-row" style="align-items:flex-end;">
+        <div class="field">
+          <label for="admin-inactivos-preventista">Preventista</label>
+          <select id="admin-inactivos-preventista">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="admin-inactivos-dias">Sin comprar hace más de</label>
+          <input type="number" id="admin-inactivos-dias" value="30" min="1" style="width:80px;" />
+          <span style="font-size:0.82rem; color:var(--muted); display:block; margin-top:4px;">días</span>
+        </div>
+        <button type="button" class="btn btn-secondary" id="btn-admin-buscar-inactivos">Buscar</button>
+      </div>
+      <div id="admin-inactivos-contenido"></div>
+    </div>
+      <div class="field">
+        <label for="prev-filtro-vendedor">Filtrar por preventista</label>
+        <select id="prev-filtro-vendedor">
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="prev-filtro-admin-desde">Desde</label>
+          <input type="date" id="prev-filtro-admin-desde" />
+        </div>
+        <div class="field">
+          <label for="prev-filtro-admin-hasta">Hasta</label>
+          <input type="date" id="prev-filtro-admin-hasta" />
+        </div>
+      </div>
+      <div id="prev-stats-admin" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:12px; margin-bottom:16px;"></div>
+      <div class="orders-list" id="prev-pedidos-admin"></div>
+    </div>
   </div>
 
   <!-- MODAL EDITAR COMBO -->
