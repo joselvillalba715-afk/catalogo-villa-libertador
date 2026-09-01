@@ -1610,26 +1610,37 @@ let pedidosPreventistasCache = [];
 function iniciarSuscripcionEquipo() {
   if (suscripcionPreventistas) return;
 
-  // Suscripción a usuarios con rol preventista
-  suscripcionPreventistas = onSnapshot(collection(db, "usuarios"), (snapshot) => {
-    preventistasCache = snapshot.docs
-      .map(d => ({ uid: d.id, ...d.data() }))
-      .filter(u => u.rol === "preventista");
-    renderListaPreventistas();
-    actualizarFiltroPreventistas();
-  }, err => console.error("Error en usuarios:", err));
+  // Suscripción a usuarios con rol preventista — error silencioso para no romper el admin
+  try {
+    suscripcionPreventistas = onSnapshot(collection(db, "usuarios"), (snapshot) => {
+      preventistasCache = snapshot.docs
+        .map(d => ({ uid: d.id, ...d.data() }))
+        .filter(u => u.rol === "preventista");
+      renderListaPreventistas();
+      actualizarFiltroPreventistas();
+    }, err => {
+      console.warn("Sin permiso para listar usuarios:", err.code);
+      // No desloguear — simplemente no mostrar la lista
+    });
+  } catch (err) {
+    console.warn("Error iniciando suscripción equipo:", err);
+  }
 
   // Suscripción a pedidos de preventistas
-  suscripcionPedidosPreventistas = onSnapshot(
-    query(collection(db, "pedidos"), orderBy("creadoEn", "desc")),
-    (snapshot) => {
-      pedidosPreventistasCache = snapshot.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(p => p.preventista);
-      renderPedidosPreventistas();
-    },
-    err => console.error("Error en pedidos preventistas:", err)
-  );
+  try {
+    suscripcionPedidosPreventistas = onSnapshot(
+      query(collection(db, "pedidos"), orderBy("creadoEn", "desc")),
+      (snapshot) => {
+        pedidosPreventistasCache = snapshot.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(p => p.preventista);
+        renderPedidosPreventistas();
+      },
+      err => console.warn("Error pedidos preventistas:", err.code)
+    );
+  } catch (err) {
+    console.warn("Error suscripción pedidos preventistas:", err);
+  }
 }
 
 // Crear nuevo preventista
@@ -1642,26 +1653,34 @@ document.getElementById("btn-crear-preventista")?.addEventListener("click", asyn
   const nombre = document.getElementById("prev-nuevo-nombre").value.trim();
   const email = document.getElementById("prev-nuevo-email").value.trim().toLowerCase();
   const pass = document.getElementById("prev-nuevo-pass").value;
+  const adminEmail = document.getElementById("admin-confirm-email")?.value.trim();
+  const adminPass = document.getElementById("admin-confirm-pass")?.value;
 
   if (!nombre || !email || !pass) { errorEl.textContent = "Completá todos los campos."; return; }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = "El email no tiene un formato válido."; return; }
   if (pass.length < 6) { errorEl.textContent = "La contraseña debe tener al menos 6 caracteres."; return; }
+  if (!adminEmail || !adminPass) {
+    errorEl.textContent = "Completá tus credenciales de admin para confirmar.";
+    return;
+  }
 
   const btn = document.getElementById("btn-crear-preventista");
   btn.disabled = true; btn.textContent = "Creando…";
 
   try {
-    // Crear usuario en Firebase Auth
+    // Crear usuario nuevo en Auth (esto cambia la sesión activa)
     const credencial = await createUserWithEmailAndPassword(auth, email, pass);
     const uid = credencial.user.uid;
 
-    // Guardar perfil en Firestore
+    // Guardar perfil en Firestore con el nuevo uid
     await setDoc(doc(db, "usuarios", uid), {
       nombre, email, rol: "preventista", creadoEn: serverTimestamp(),
     });
 
-    // También agregar a emailsAutorizados para que pueda registrarse si fuera necesario
     await setDoc(doc(db, "emailsAutorizados", email), { preventista: true });
+
+    // Restaurar sesión del admin inmediatamente
+    await signInWithEmailAndPassword(auth, adminEmail, adminPass);
 
     document.getElementById("prev-nuevo-nombre").value = "";
     document.getElementById("prev-nuevo-email").value = "";
@@ -1672,8 +1691,10 @@ document.getElementById("btn-crear-preventista")?.addEventListener("click", asyn
     console.error(err);
     if (err.code === "auth/email-already-in-use") {
       errorEl.textContent = "Ya existe una cuenta con ese email.";
+    } else if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+      errorEl.textContent = "No se pudo restaurar tu sesión. Ingresá de nuevo al panel.";
     } else {
-      errorEl.textContent = "No se pudo crear el preventista. Probá de nuevo.";
+      errorEl.textContent = `Error: ${err.message}`;
     }
   } finally {
     btn.disabled = false; btn.textContent = "Crear acceso";
@@ -1691,11 +1712,30 @@ function renderListaPreventistas() {
     const pedidosPrev = pedidosPreventistasCache.filter(p => p.preventista === prev.uid);
     const row = document.createElement("div"); row.className = "admin-product-row";
     const info = document.createElement("div"); info.className = "admin-product-row__info";
-    const name = document.createElement("p"); name.className = "admin-product-row__name"; name.textContent = prev.nombre || prev.email; info.appendChild(name);
+    const name = document.createElement("p"); name.className = "admin-product-row__name";
+    name.textContent = prev.nombre || prev.email; info.appendChild(name);
     const meta = document.createElement("p"); meta.className = "admin-product-row__meta";
     meta.textContent = `${prev.email} · ${pedidosPrev.length} pedidos tomados`;
     info.appendChild(meta);
     row.appendChild(info);
+
+    const actions = document.createElement("div"); actions.className = "admin-product-row__actions";
+    const btnEliminar = document.createElement("button");
+    btnEliminar.type = "button"; btnEliminar.className = "icon-btn";
+    btnEliminar.textContent = "Eliminar acceso";
+    btnEliminar.addEventListener("click", async () => {
+      if (!confirm(`¿Eliminar el acceso de "${prev.nombre || prev.email}"? No podrá seguir ingresando al sistema.`)) return;
+      try {
+        // Marcar como inactivo en Firestore (no podemos borrar el usuario de Auth desde el cliente)
+        await setDoc(doc(db, "usuarios", prev.uid), { ...prev, activo: false, rol: "inactivo" }, { merge: true });
+        alert(`Acceso de "${prev.nombre || prev.email}" desactivado. El usuario no podrá ingresar más.`);
+      } catch (err) {
+        console.error(err);
+        alert("No se pudo desactivar el acceso. Probá de nuevo.");
+      }
+    });
+    actions.appendChild(btnEliminar);
+    row.appendChild(actions);
     lista.appendChild(row);
   }
 }
@@ -1810,16 +1850,20 @@ let suscripcionAgendas = null;
 
 function iniciarSuscripcionAgendas() {
   if (suscripcionAgendas) return;
-  suscripcionAgendas = onSnapshot(collection(db, "agenda_preventista"), (snapshot) => {
-    agendasCache = {};
-    snapshot.docs.forEach(d => {
-      const data = d.data();
-      agendasCache[data.preventistaId] = { id: d.id, ...data };
-    });
-    renderAgendaAdmin();
-    renderInactivosAdmin();
-    actualizarSelectoresAgendaAdmin();
-  }, err => console.error("Error agendas:", err));
+  try {
+    suscripcionAgendas = onSnapshot(collection(db, "agenda_preventista"), (snapshot) => {
+      agendasCache = {};
+      snapshot.docs.forEach(d => {
+        const data = d.data();
+        agendasCache[data.preventistaId] = { id: d.id, ...data };
+      });
+      renderAgendaAdmin();
+      renderInactivosAdmin();
+      actualizarSelectoresAgendaAdmin();
+    }, err => console.warn("Sin permiso para agendas:", err.code));
+  } catch (err) {
+    console.warn("Error iniciando agendas:", err);
+  }
 }
 
 function actualizarSelectoresAgendaAdmin() {
