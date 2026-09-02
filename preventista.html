@@ -389,8 +389,13 @@
                 </select>
               </div>
               <div class="field">
+                <label for="prev-fecha-entrega">Fecha de entrega</label>
+                <input type="date" id="prev-fecha-entrega" required />
+                <p class="helper-text" style="margin-top:4px;">Por defecto el día siguiente. Cambiala si es necesario.</p>
+              </div>
+              <div class="field">
                 <label for="prev-cliente-obs">Observaciones (opcional)</label>
-                <textarea id="prev-cliente-obs" rows="2" placeholder="Ej: Entregar el jueves"></textarea>
+                <textarea id="prev-cliente-obs" rows="2" placeholder="Ej: Entregar a la mañana"></textarea>
               </div>
               <p class="error-text" id="prev-datos-error"></p>
             </form>
