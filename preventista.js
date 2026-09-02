@@ -178,6 +178,22 @@ function mostrarVistaDatos() {
   document.getElementById("prev-cart-title").textContent = "Datos del cliente";
   document.getElementById("prev-cart-view-items").classList.add("hidden");
   document.getElementById("prev-cart-view-datos").classList.remove("hidden");
+
+  // Preseleccionar el día siguiente como fecha de entrega
+  const manana = new Date();
+  manana.setDate(manana.getDate() + 1);
+  const yyyy = manana.getFullYear();
+  const mm = String(manana.getMonth() + 1).padStart(2, "0");
+  const dd = String(manana.getDate()).padStart(2, "0");
+  const inputFecha = document.getElementById("prev-fecha-entrega");
+  if (inputFecha && !inputFecha.value) {
+    inputFecha.value = `${yyyy}-${mm}-${dd}`;
+  }
+
+  // Fecha mínima = hoy
+  const hoy = new Date();
+  const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}-${String(hoy.getDate()).padStart(2,"0")}`;
+  if (inputFecha) inputFecha.min = hoyStr;
 }
 
 document.getElementById("prev-btn-volver").addEventListener("click", mostrarVistaItems);
@@ -204,9 +220,13 @@ document.getElementById("prev-form-datos").addEventListener("submit", async (e) 
   const clienteNombre = clienteSeleccionado.nombre;
   const clienteWhatsapp = clienteSeleccionado.telefono.replace(/[^0-9]/g, "");
   const formaPago = document.getElementById("prev-cliente-pago").value;
+  const fechaEntrega = document.getElementById("prev-fecha-entrega").value;
   const observaciones = document.getElementById("prev-cliente-obs").value.trim();
   if (!formaPago) {
     errEl.textContent = "Seleccioná la forma de pago."; return;
+  }
+  if (!fechaEntrega) {
+    errEl.textContent = "Seleccioná la fecha de entrega."; return;
   }
   const btnConfirmar = document.getElementById("prev-btn-confirmar");
   btnConfirmar.disabled = true; btnConfirmar.textContent = "Guardando…";
@@ -219,16 +239,21 @@ document.getElementById("prev-form-datos").addEventListener("submit", async (e) 
       clienteNombre, clienteWhatsapp, formaPago, items,
       subtotal: totalCarrito(), total: totalCarrito(),
       observaciones: observaciones || "",
+      fechaEntrega: fechaEntrega || "",
       preventista: preventistaData.uid,
       preventistaNombre: preventistaData.nombre || preventistaData.email,
       creadoEn: serverTimestamp(),
       cuponCodigo: null, descuento: 0, combosAplicados: [], descuentoCombos: 0,
     });
+    // Formatear fecha de entrega para el mensaje
+    const fechaEntregaFormateada = fechaEntrega
+      ? new Date(fechaEntrega + "T12:00:00").toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "long" })
+      : "";
     // Abrir WhatsApp con el pedido
     const lineas = Object.values(carrito).map(it =>
       `• ${fmtCantidad(it.cantidad)}x ${it.nombre} (${fmt.format(it.precioUnitario)} c/u) = ${fmt.format(it.precioUnitario * it.cantidad)}`
     );
-    const texto = `Hola! Soy ${clienteNombre} y este es mi pedido:\n\n${lineas.join("\n")}\n\nTotal: ${fmt.format(totalCarrito())}\nForma de pago: ${formaPago}${observaciones ? `\nObservaciones: ${observaciones}` : ""}`;
+    const texto = `Hola! Soy ${clienteNombre} y este es mi pedido:\n\n${lineas.join("\n")}\n\nTotal: ${fmt.format(totalCarrito())}\nForma de pago: ${formaPago}${fechaEntregaFormateada ? `\nFecha de entrega: ${fechaEntregaFormateada}` : ""}${observaciones ? `\nObservaciones: ${observaciones}` : ""}`;
     const link = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(texto)}`;
     const esAndroid = /android/i.test(navigator.userAgent);
     if (esAndroid) {
@@ -239,6 +264,7 @@ document.getElementById("prev-form-datos").addEventListener("submit", async (e) 
     }
     vaciarCarrito();
     document.getElementById("prev-form-datos").reset();
+    document.getElementById("prev-fecha-entrega").value = ""; // resetear para que próximo pedido preseleccione de nuevo
     document.getElementById("prev-cart-backdrop").classList.add("hidden");
     mostrarVistaItems();
   } catch (err) {
