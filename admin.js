@@ -863,8 +863,28 @@ let suscripcionProductos = null;
 let suscripcionPedidos = null;
 let suscripcionCupones = null;
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
+    // Verificar que el usuario tenga rol "admin" en Firestore
+    try {
+      const perfilSnap = await getDoc(doc(db, "usuarios", user.uid));
+      const rol = perfilSnap.exists() ? (perfilSnap.data().role || perfilSnap.data().rol) : null;
+      if (rol !== "admin") {
+        // No es admin — desloguear y mostrar error
+        await signOut(auth);
+        loginError.textContent = "No tenés acceso al panel de administración.";
+        if (loginCard) loginCard.classList.remove("hidden");
+        return;
+      }
+    } catch (err) {
+      // Si no puede leer el perfil, denegar acceso por seguridad
+      console.error("Error verificando rol:", err);
+      await signOut(auth);
+      loginError.textContent = "No se pudo verificar tu acceso. Intentá de nuevo.";
+      if (loginCard) loginCard.classList.remove("hidden");
+      return;
+    }
+
     if (loginCard) loginCard.classList.add("hidden");
     if (registroCard) registroCard.classList.add("hidden");
     if (resetCard) resetCard.classList.add("hidden");
