@@ -49,9 +49,14 @@ onAuthStateChanged(auth, async (user) => {
   // Verificar rol en Firestore
   try {
     const snap = await getDoc(doc(db, "usuarios", user.uid));
-    if (!snap.exists() || snap.data().rol !== "preventista") {
+    const rol = snap.exists() ? snap.data().rol : null;
+    if (rol !== "preventista") {
       await signOut(auth);
-      document.getElementById("prev-login-error").textContent = "No tenés acceso como preventista.";
+      document.getElementById("prev-login-error").textContent = rol === null
+        ? "No tenés acceso como preventista."
+        : "Este acceso es solo para preventistas.";
+      document.getElementById("prev-login-card").classList.remove("hidden");
+      document.getElementById("prev-app").classList.add("hidden");
       return;
     }
     preventistaData = { uid: user.uid, email: user.email, ...snap.data() };
@@ -140,7 +145,14 @@ function renderCarrito() {
     const name = document.createElement("p"); name.className = "cart-item__name"; name.textContent = it.nombre; info.appendChild(name);
     const price = document.createElement("p"); price.className = "cart-item__price"; price.textContent = `${fmt.format(it.precioUnitario)} c/u`; info.appendChild(price);
     const minimo = it.fraccionable ? 0.5 : 1;
-    info.appendChild(crearStepper(it.cantidad, (nuevaCantidad) => cambiarCantidadCarrito(id, Math.max(minimo, nuevaCantidad)), it.fraccionable ? 0.5 : 1, minimo));
+    info.appendChild(crearStepper(it.cantidad, (nuevaCantidad) => {
+      const productoCompleto = todosLosProductos.find(p => p.id === id);
+      if (productoCompleto && productoCompleto.preciosVolumen && productoCompleto.preciosVolumen.length > 0) {
+        const nuevoPrecio = precioSegunVolumen(productoCompleto, nuevaCantidad);
+        if (carrito[id]) carrito[id].precioUnitario = nuevoPrecio;
+      }
+      cambiarCantidadCarrito(id, Math.max(minimo, nuevaCantidad));
+    }, it.fraccionable ? 0.5 : 1, minimo));
     row.appendChild(info);
     const right = document.createElement("div"); right.className = "cart-item__right";
     const subtotal = document.createElement("span"); subtotal.className = "cart-item__subtotal"; subtotal.textContent = fmt.format(it.precioUnitario * it.cantidad); right.appendChild(subtotal);
@@ -333,8 +345,20 @@ function renderCatalogo(productos) {
   }
 }
 
+// ── Precios por volumen ──
+function precioSegunVolumen(p, cantidad) {
+  if (!p.preciosVolumen || p.preciosVolumen.length === 0) {
+    return p.promo && p.precioPromo != null ? p.precioPromo : p.precio || 0;
+  }
+  const escalones = [...p.preciosVolumen].sort((a, b) => b.cantidad - a.cantidad);
+  for (const esc of escalones) {
+    if (cantidad >= esc.cantidad) return esc.precio;
+  }
+  return p.promo && p.precioPromo != null ? p.precioPromo : p.precio || 0;
+}
+
 function renderCard(p) {
-  const precio = p.promo && p.precioPromo != null ? p.precioPromo : p.precio || 0;
+  const precioBase = p.promo && p.precioPromo != null ? p.precioPromo : p.precio || 0;
   const card = document.createElement("article"); card.className = "product-card";
   if (p.enStock === false) card.classList.add("product-card--soldout");
 
@@ -347,60 +371,114 @@ function renderCard(p) {
   const body = document.createElement("div"); body.className = "product-card__body";
   const meta = document.createElement("div"); meta.className = "product-card__meta";
   const name = document.createElement("h3"); name.className = "product-card__name"; name.textContent = p.nombre; meta.appendChild(name);
+
   const priceRow = document.createElement("div"); priceRow.className = "product-card__price-row";
-  if (p.promo && p.precioPromo != null && p.enStock !== false) { const old = document.createElement("span"); old.className = "product-card__price--old"; old.textContent = fmt.format(p.precio); priceRow.appendChild(old); }
-  const priceEl = document.createElement("span"); priceEl.className = "product-card__price"; priceEl.textContent = fmt.format(precio); priceRow.appendChild(priceEl);
+  // Precio tachado por promo
+  if (p.promo && p.precioPromo != null && p.enStock !== false) {
+    const old = document.createElement("span"); old.className = "product-card__price--old"; old.textContent = fmt.format(p.precio); priceRow.appendChild(old);
+  }
+  // Precio tachado por volumen (cuando el menor escalón es más barato que el base)
+  const precioMinimoVolumen = p.preciosVolumen && p.preciosVolumen.length > 0
+    ? Math.min(...p.preciosVolumen.map(e => e.precio)) : null;
+  if (precioMinimoVolumen != null && precioMinimoVolumen < precioBase && !p.promo) {
+    const oldVol = document.createElement("span"); oldVol.className = "product-card__price--old"; oldVol.textContent = fmt.format(precioBase); priceRow.appendChild(oldVol);
+  }
+  const priceEl = document.createElement("span"); priceEl.className = "product-card__price"; priceEl.textContent = fmt.format(precioBase); priceRow.appendChild(priceEl);
   meta.appendChild(priceRow); body.appendChild(meta);
+
+  if (p.promo && p.promoTexto && p.enStock !== false) { const pt = document.createElement("p"); pt.className = "product-card__promo-text"; pt.textContent = p.promoTexto; meta.appendChild(pt); }
   if (p.fraccionable && p.enStock !== false) { const av = document.createElement("p"); av.className = "product-card__fraccionable-text"; av.textContent = "Se puede pedir por mitad"; meta.appendChild(av); }
+
+  // Tabla de precios por volumen
+  if (p.preciosVolumen && p.preciosVolumen.length > 0 && p.enStock !== false) {
+    const tabla = document.createElement("div"); tabla.className = "volumen-tabla";
+    const escalones = [...p.preciosVolumen].sort((a, b) => a.cantidad - b.cantidad);
+    escalones.forEach((esc, idx) => {
+      const siguiente = escalones[idx + 1];
+      const fila = document.createElement("div"); fila.className = "volumen-tabla__fila"; fila.dataset.cantidad = esc.cantidad;
+      const rango = siguiente ? `${esc.cantidad}–${siguiente.cantidad - 1} unid.` : `${esc.cantidad}+ unid.`;
+      fila.innerHTML = `<span>${rango}</span><span>${fmt.format(esc.precio)} c/u</span>`;
+      tabla.appendChild(fila);
+    });
+    meta.appendChild(tabla);
+  }
 
   if (p.enStock === false) {
     const badge = document.createElement("span"); badge.className = "product-card__stock-badge"; badge.textContent = "Sin stock"; body.appendChild(badge);
   } else {
     const controls = document.createElement("div"); controls.className = "product-card__controls";
-    actualizarControlesCard(controls, p);
+    if (p.minimoCompra != null && p.minimoCompra > 0) {
+      const avisoMin = document.createElement("p"); avisoMin.className = "product-card__minimo-texto";
+      avisoMin.textContent = `Mín. ${fmtCantidad(p.minimoCompra)} unid.`; controls.appendChild(avisoMin);
+    }
+    actualizarControlesCard(controls, p, priceEl);
     body.appendChild(controls);
   }
   card.appendChild(body);
   return card;
 }
 
-function actualizarControlesCard(controls, p) {
+function actualizarControlesCard(controls, p, priceEl) {
   controls.innerHTML = "";
-  tarjetasRegistradas.set(p.id, () => actualizarControlesCard(controls, p));
+  tarjetasRegistradas.set(p.id, () => actualizarControlesCard(controls, p, priceEl));
   const enCarrito = carrito[p.id];
   const paso = p.fraccionable ? 0.5 : 1;
-  const minimo = p.minimoCompra > 0 ? p.minimoCompra : paso;
+  const minimo = (p.minimoCompra != null && p.minimoCompra > 0) ? p.minimoCompra : paso;
+
+  function resaltarFilaVolumen(cantidad) {
+    if (!p.preciosVolumen || p.preciosVolumen.length === 0) return;
+    const card = controls.closest(".product-card");
+    if (!card) return;
+    const filas = card.querySelectorAll(".volumen-tabla__fila");
+    let filaActiva = null;
+    const escalones = [...p.preciosVolumen].sort((a, b) => b.cantidad - a.cantidad);
+    for (const esc of escalones) {
+      if (cantidad >= esc.cantidad) { filaActiva = esc.cantidad; break; }
+    }
+    filas.forEach(fila => {
+      fila.classList.toggle("volumen-tabla__fila--activa", parseInt(fila.dataset.cantidad) === filaActiva);
+    });
+    if (priceEl) priceEl.textContent = fmt.format(precioSegunVolumen(p, cantidad));
+  }
 
   if (enCarrito) {
     const label = document.createElement("span"); label.className = "btn-en-carrito-label"; label.textContent = "✓ En carrito"; controls.appendChild(label);
     const stepper = crearStepper(enCarrito.cantidad, null, paso, minimo); controls.appendChild(stepper);
+    resaltarFilaVolumen(enCarrito.cantidad);
     const btnMod = document.createElement("button"); btnMod.type = "button"; btnMod.className = "btn-add btn-add--modificar"; btnMod.textContent = "Modificar";
     btnMod.addEventListener("click", () => {
       const cant = parseFloat(stepper.querySelector(".qty-stepper__value").textContent.replace(",", "."));
+      if (carrito[p.id]) carrito[p.id].precioUnitario = precioSegunVolumen(p, cant);
       cambiarCantidadCarrito(p.id, cant);
-      actualizarControlesCard(controls, p);
+      actualizarControlesCard(controls, p, priceEl);
       btnMod.textContent = "✓ Listo";
-      setTimeout(() => actualizarControlesCard(controls, p), 800);
+      setTimeout(() => actualizarControlesCard(controls, p, priceEl), 800);
     });
     controls.appendChild(btnMod);
     const btnQ = document.createElement("button"); btnQ.type = "button"; btnQ.className = "btn-add btn-add--quitar"; btnQ.textContent = "Quitar";
-    btnQ.addEventListener("click", () => { quitarDelCarrito(p.id); actualizarControlesCard(controls, p); });
+    btnQ.addEventListener("click", () => { quitarDelCarrito(p.id); actualizarControlesCard(controls, p, priceEl); });
     controls.appendChild(btnQ);
   } else {
     const stepper = crearStepper(minimo, null, paso, minimo); controls.appendChild(stepper);
+    resaltarFilaVolumen(minimo);
     const btnAgregar = document.createElement("button"); btnAgregar.type = "button"; btnAgregar.className = "btn-add"; btnAgregar.textContent = "Agregar";
-    const verificar = () => {
+
+    function verificar() {
       const cant = parseFloat(stepper.querySelector(".qty-stepper__value").textContent.replace(",", "."));
+      resaltarFilaVolumen(cant);
       btnAgregar.disabled = p.minimoCompra > 0 && cant < p.minimoCompra;
       btnAgregar.style.opacity = btnAgregar.disabled ? "0.5" : "";
-    };
+    }
     stepper.querySelector("button:first-child").addEventListener("click", verificar);
     stepper.querySelector("button:last-child").addEventListener("click", verificar);
     verificar();
+
     btnAgregar.addEventListener("click", () => {
       const cant = parseFloat(stepper.querySelector(".qty-stepper__value").textContent.replace(",", "."));
-      agregarAlCarrito(p, cant);
-      actualizarControlesCard(controls, p);
+      const precioUnitario = precioSegunVolumen(p, cant);
+      agregarAlCarrito({ ...p, precio: precioUnitario, promo: false, precioPromo: null }, cant);
+      if (carrito[p.id]) carrito[p.id].precioUnitario = precioUnitario;
+      actualizarControlesCard(controls, p, priceEl);
     });
     controls.appendChild(btnAgregar);
   }
