@@ -723,15 +723,20 @@ function iniciarApp() {
     renderSeccionCombos();
   });
 
-  // Suscripción a mis pedidos
+  // Suscripción a mis pedidos — sin orderBy para evitar índice compuesto
   const pedidosQuery = query(
     collection(db, "pedidos"),
-    where("preventista", "==", preventistaData.uid),
-    orderBy("creadoEn", "desc")
+    where("preventista", "==", preventistaData.uid)
   );
   onSnapshot(pedidosQuery, (snapshot) => {
-    misPedidos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-  });
+    misPedidos = snapshot.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => {
+        const fa = a.creadoEn?.toDate ? a.creadoEn.toDate() : (a.creadoEn?.seconds ? new Date(a.creadoEn.seconds * 1000) : new Date(0));
+        const fb = b.creadoEn?.toDate ? b.creadoEn.toDate() : (b.creadoEn?.seconds ? new Date(b.creadoEn.seconds * 1000) : new Date(0));
+        return fb - fa;
+      });
+  }, err => console.warn("Error pedidos preventista:", err.code));
 
   // Cargar clientes_reparto
   onSnapshot(
@@ -901,7 +906,7 @@ function iniciarAgenda() {
     renderAgendaHoy();
     renderAgendaSemana();
     renderAgendaAsignar();
-  });
+  }, err => console.warn("Sin permiso para agenda:", err.code));
 }
 
 async function guardarAgenda() {
