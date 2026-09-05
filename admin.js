@@ -863,24 +863,33 @@ let suscripcionProductos = null;
 let suscripcionPedidos = null;
 let suscripcionCupones = null;
 
+// Flag para ignorar el onAuthStateChanged durante restauración de sesión
+let ignorarAuthChange = false;
+
 onAuthStateChanged(auth, async (user) => {
+  if (ignorarAuthChange) return; // Ignorar cambios durante restauración de sesión
+
   if (user) {
     // Verificar que el usuario tenga rol "admin" en Firestore
-    try {
-      const perfilSnap = await getDoc(doc(db, "usuarios", user.uid));
-      const rol = perfilSnap.exists() ? (perfilSnap.data().role || perfilSnap.data().rol) : null;
-      if (rol !== "admin") {
-        // No es admin — desloguear y mostrar error
-        await signOut(auth);
-        loginError.textContent = "No tenés acceso al panel de administración.";
-        if (loginCard) loginCard.classList.remove("hidden");
-        return;
+    // Intentar hasta 3 veces con delay para dar tiempo a que Firestore actualice
+    let rol = null;
+    for (let intento = 0; intento < 3; intento++) {
+      try {
+        const perfilSnap = await getDoc(doc(db, "usuarios", user.uid));
+        rol = perfilSnap.exists() ? (perfilSnap.data().role || perfilSnap.data().rol) : null;
+        if (rol) break;
+        await new Promise(r => setTimeout(r, 500)); // Esperar 500ms antes de reintentar
+      } catch (err) {
+        console.warn("Intento", intento + 1, "- Error verificando rol:", err.code);
+        await new Promise(r => setTimeout(r, 500));
       }
-    } catch (err) {
-      // Si no puede leer el perfil, denegar acceso por seguridad
-      console.error("Error verificando rol:", err);
+    }
+
+    if (rol !== "admin") {
       await signOut(auth);
-      loginError.textContent = "No se pudo verificar tu acceso. Intentá de nuevo.";
+      loginError.textContent = rol
+        ? "No tenés acceso al panel de administración."
+        : "No se pudo verificar tu acceso. Intentá de nuevo.";
       if (loginCard) loginCard.classList.remove("hidden");
       return;
     }
@@ -1689,6 +1698,9 @@ document.getElementById("btn-crear-preventista")?.addEventListener("click", asyn
   btn.disabled = true; btn.textContent = "Creando…";
 
   try {
+    // Activar flag para ignorar cambios de auth durante la operación
+    ignorarAuthChange = true;
+
     // Crear usuario nuevo en Auth (esto cambia la sesión activa)
     const credencial = await createUserWithEmailAndPassword(auth, email, pass);
     const uid = credencial.user.uid;
@@ -1700,8 +1712,11 @@ document.getElementById("btn-crear-preventista")?.addEventListener("click", asyn
 
     await setDoc(doc(db, "emailsAutorizados", email), { preventista: true });
 
-    // Restaurar sesión del admin inmediatamente
+    // Restaurar sesión del admin
     await signInWithEmailAndPassword(auth, adminEmail, adminPass);
+
+    // Desactivar flag DESPUÉS de restaurar sesión
+    ignorarAuthChange = false;
 
     document.getElementById("prev-nuevo-nombre").value = "";
     document.getElementById("prev-nuevo-email").value = "";
@@ -1709,6 +1724,8 @@ document.getElementById("btn-crear-preventista")?.addEventListener("click", asyn
     okEl.classList.remove("hidden");
     setTimeout(() => okEl.classList.add("hidden"), 4000);
   } catch (err) {
+    // Si algo falla, desactivar el flag y manejar el error
+    ignorarAuthChange = false;
     console.error(err);
     if (err.code === "auth/email-already-in-use") {
       errorEl.textContent = "Ya existe una cuenta con ese email.";
