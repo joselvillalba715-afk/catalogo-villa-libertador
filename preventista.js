@@ -39,11 +39,14 @@ document.getElementById("prev-login-form").addEventListener("submit", async (e) 
 
 document.getElementById("prev-btn-logout").addEventListener("click", () => signOut(auth));
 
+let appIniciada = false;
+
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     document.getElementById("prev-login-card").classList.remove("hidden");
     document.getElementById("prev-app").classList.add("hidden");
     preventistaData = null;
+    appIniciada = false;
     return;
   }
   // Verificar rol en Firestore
@@ -63,11 +66,17 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById("prev-nombre-display").textContent = preventistaData.nombre || user.email;
     document.getElementById("prev-login-card").classList.add("hidden");
     document.getElementById("prev-app").classList.remove("hidden");
-    iniciarApp();
+    if (!appIniciada) {
+      appIniciada = true;
+      iniciarApp();
+    }
   } catch (err) {
-    console.error(err);
-    document.getElementById("prev-login-error").textContent = "Error al verificar acceso.";
-    await signOut(auth);
+    console.warn("Error verificando rol:", err.code);
+    // Solo desloguear si es un error de auth, no de permisos temporales
+    if (err.code !== "permission-denied") {
+      document.getElementById("prev-login-error").textContent = "Error al verificar acceso.";
+      await signOut(auth);
+    }
   }
 });
 
