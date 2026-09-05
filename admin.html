@@ -542,6 +542,67 @@
     </div>
 
     <div class="panel">
+      <h2>Objetivos y comisiones</h2>
+      <p class="helper-text">Definí los objetivos para un período específico. Cada preventista puede tener hasta 4 objetivos independientes, cada uno con su propio escalón de comisión.</p>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="obj-preventista">Preventista</label>
+          <select id="obj-preventista">
+            <option value="">Seleccioná un preventista</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="obj-periodo-nombre">Nombre del período</label>
+          <input type="text" id="obj-periodo-nombre" placeholder="Ej: Agosto 2026" />
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="obj-desde">Desde</label>
+          <input type="date" id="obj-desde" />
+        </div>
+        <div class="field">
+          <label for="obj-hasta">Hasta</label>
+          <input type="date" id="obj-hasta" />
+        </div>
+      </div>
+
+      <div id="obj-lista-objetivos">
+        <!-- Se renderizan dinámicamente -->
+      </div>
+
+      <button type="button" class="btn btn-secondary" id="btn-agregar-objetivo" style="margin-bottom:12px;">+ Agregar objetivo</button>
+      <br>
+      <button type="button" class="btn btn-primary" id="btn-guardar-objetivos">Guardar objetivos del período</button>
+      <p class="error-text" id="obj-error"></p>
+      <p class="helper-text hidden" id="obj-ok" style="color:#2d7a4f; margin-top:8px;">✓ Objetivos guardados correctamente.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Resumen de ventas por preventista</h2>
+      <p class="helper-text">Para calcular comisiones al cierre del período.</p>
+      <div class="field-row" style="align-items:flex-end;">
+        <div class="field">
+          <label for="resumen-preventista">Preventista</label>
+          <select id="resumen-preventista">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="resumen-desde">Desde</label>
+          <input type="date" id="resumen-desde" />
+        </div>
+        <div class="field">
+          <label for="resumen-hasta">Hasta</label>
+          <input type="date" id="resumen-hasta" />
+        </div>
+        <button type="button" class="btn btn-secondary" id="btn-calcular-resumen">Calcular</button>
+      </div>
+      <div id="resumen-ventas-contenido"></div>
+    </div>
+
+    <div class="panel">
       <h2>Agenda de preventistas</h2>
       <div class="field-row">
         <div class="field">
