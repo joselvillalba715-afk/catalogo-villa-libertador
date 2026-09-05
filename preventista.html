@@ -137,6 +137,19 @@
       padding: 22px;
       box-sizing: border-box;
     }
+    /* Objetivos */
+    .obj-progress-wrap { margin-bottom: 16px; }
+    .obj-progress-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
+    .obj-progress-label { font-weight:700; font-size:0.88rem; color:var(--ink); }
+    .obj-progress-valor { font-size:0.82rem; color:var(--ink-soft); }
+    .obj-progress-bar { height:12px; background:var(--muted-bg); border-radius:999px; overflow:hidden; margin-bottom:4px; }
+    .obj-progress-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, #1a3a6b, #4a7fc1); transition:width 0.5s ease; }
+    .obj-progress-fill--completo { background:linear-gradient(90deg, #2d7a4f, #4caf50); }
+    .obj-progress-sub { display:flex; justify-content:space-between; font-size:0.72rem; color:var(--muted); }
+    .obj-comision-total { background:#e8f0fe; border-radius:10px; padding:14px; text-align:center; margin-top:16px; }
+    .obj-comision-total__monto { font-family:var(--font-display); font-size:1.6rem; font-weight:700; color:#1a3a6b; }
+    .obj-comision-total__label { font-size:0.78rem; color:var(--muted); margin-top:2px; }
+
     .caja-login-prev h1 {
       font-family: var(--font-display);
       text-transform: uppercase;
@@ -270,6 +283,7 @@
         <span class="prev-topbar__rol">Preventista</span>
       </div>
       <div class="prev-topbar__actions">
+        <button type="button" class="prev-btn-resumen" id="prev-btn-objetivos">🎯 Mis objetivos</button>
         <button type="button" class="prev-btn-resumen" id="prev-btn-agenda">📅 Agenda</button>
         <button type="button" class="prev-btn-resumen" id="prev-btn-resumen">📊 Mis pedidos</button>
         <button type="button" class="prev-btn-resumen" id="prev-btn-logout">Salir</button>
@@ -279,6 +293,15 @@
     <!-- Banner -->
     <div class="main-banner">
       <img src="images /banner-distribuidora.png" alt="Distribuidora Villa Libertador" class="banner-img" />
+    </div>
+
+    <!-- Sección combos del día -->
+    <div class="combos-seccion hidden" id="combos-seccion">
+      <div class="combos-seccion__header">
+        <span class="combos-seccion__titulo">🎁 Combos del día</span>
+        <span class="combos-seccion__subtitulo">Agregá el combo completo con un toque</span>
+      </div>
+      <div class="combos-lista" id="combos-lista"></div>
     </div>
 
     <!-- Buscador -->
@@ -428,12 +451,29 @@
             <label for="prev-filtro-hasta">Hasta</label>
             <input type="date" id="prev-filtro-hasta" />
           </div>
+          <div class="field">
+            <label for="prev-filtro-cliente">Cliente</label>
+            <input type="text" id="prev-filtro-cliente" placeholder="Buscar cliente..." autocomplete="off" />
+          </div>
           <button type="button" class="btn btn-secondary" id="prev-btn-limpiar-filtros">Limpiar</button>
         </div>
 
         <div class="prev-stats" id="prev-stats"></div>
 
         <div class="prev-pedidos-lista" id="prev-pedidos-lista"></div>
+      </div>
+    </div>
+
+    <!-- Panel de objetivos -->
+    <div class="prev-resumen hidden" id="prev-objetivos-panel">
+      <div class="prev-resumen__card" style="max-width:600px;">
+        <div class="prev-resumen__header">
+          <h2 class="prev-resumen__titulo">🎯 Mis objetivos</h2>
+          <button type="button" class="icon-btn" id="prev-btn-cerrar-objetivos">✕</button>
+        </div>
+        <div id="prev-objetivos-contenido">
+          <p class="helper-text">Cargando objetivos...</p>
+        </div>
       </div>
     </div>
 
