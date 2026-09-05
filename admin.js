@@ -894,6 +894,7 @@ onAuthStateChanged(auth, async (user) => {
     iniciarSuscripcionCombos();
     iniciarSuscripcionEquipo();
     iniciarSuscripcionAgendas();
+    iniciarSuscripcionObjetivos();
 
     if (!suscripcionProductos) {
       const productosQuery = query(collection(db, "productos"), orderBy("categoria"), orderBy("orden"));
@@ -922,8 +923,8 @@ onAuthStateChanged(auth, async (user) => {
     }
 
   } else {
-    [suscripcionProductos, suscripcionPedidos, suscripcionCupones, suscripcionCombos, suscripcionPreventistas, suscripcionPedidosPreventistas].forEach((unsub) => { if (unsub) unsub(); });
-    suscripcionProductos = null; suscripcionPedidos = null; suscripcionCupones = null; suscripcionCombos = null; suscripcionPreventistas = null; suscripcionPedidosPreventistas = null;
+    [suscripcionProductos, suscripcionPedidos, suscripcionCupones, suscripcionCombos, suscripcionPreventistas, suscripcionPedidosPreventistas, suscripcionObjetivos].forEach((unsub) => { if (unsub) unsub(); });
+    suscripcionProductos = null; suscripcionPedidos = null; suscripcionCupones = null; suscripcionCombos = null; suscripcionPreventistas = null; suscripcionPedidosPreventistas = null; suscripcionObjetivos = null;
     if (adminShell) adminShell.classList.add("hidden");
     if (loginCard) loginCard.classList.remove("hidden");
   }
@@ -1995,3 +1996,368 @@ document.getElementById("admin-agenda-preventista")?.addEventListener("change", 
 document.getElementById("admin-agenda-dia")?.addEventListener("change", renderAgendaAdmin);
 document.getElementById("btn-admin-buscar-inactivos")?.addEventListener("click", renderInactivosAdmin);
 document.getElementById("admin-inactivos-preventista")?.addEventListener("change", renderInactivosAdmin);
+
+// ============================================================
+// OBJETIVOS Y COMISIONES
+// ============================================================
+
+const TIPOS_OBJETIVO = {
+  monto: "Monto total vendido ($)",
+  pedidos: "Cantidad de pedidos",
+  clientes: "Clientes distintos visitados",
+  cobertura: "Cobertura de producto (X unidades en Y clientes distintos)",
+};
+
+let objetivosCache = {}; // preventistaId → [{ id, ...datos }]
+let suscripcionObjetivos = null;
+
+function iniciarSuscripcionObjetivos() {
+  if (suscripcionObjetivos) return;
+  try {
+    suscripcionObjetivos = onSnapshot(collection(db, "objetivos_preventista"), (snapshot) => {
+      objetivosCache = {};
+      snapshot.docs.forEach(d => {
+        const data = d.data();
+        if (!objetivosCache[data.preventistaId]) objetivosCache[data.preventistaId] = [];
+        objetivosCache[data.preventistaId].push({ id: d.id, ...data });
+      });
+      actualizarSelectoresObjetivos();
+    }, err => console.warn("Sin permiso para objetivos:", err.code));
+  } catch (err) { console.warn(err); }
+}
+
+function actualizarSelectoresObjetivos() {
+  ["obj-preventista", "resumen-preventista"].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = id === "obj-preventista"
+      ? `<option value="">Seleccioná un preventista</option>`
+      : `<option value="">Todos</option>`;
+    preventistasCache.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.uid; opt.textContent = p.nombre || p.email;
+      sel.appendChild(opt);
+    });
+    if (prev) sel.value = prev;
+  });
+}
+
+// Renderizar filas de objetivos editables
+function crearFilaObjetivo(obj = {}) {
+  const fila = document.createElement("div");
+  fila.className = "obj-fila";
+  fila.style.cssText = "background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:12px;";
+
+  // Tipo de objetivo
+  const tipoWrap = document.createElement("div"); tipoWrap.className = "field";
+  const tipoLabel = document.createElement("label"); tipoLabel.textContent = "Tipo de objetivo"; tipoWrap.appendChild(tipoLabel);
+  const tipoSel = document.createElement("select"); tipoSel.className = "obj-tipo";
+  tipoSel.style.cssText = "width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:0.88rem;";
+  Object.entries(TIPOS_OBJETIVO).forEach(([val, label]) => {
+    const opt = document.createElement("option"); opt.value = val; opt.textContent = label;
+    if (obj.tipo === val) opt.selected = true;
+    tipoSel.appendChild(opt);
+  });
+  tipoWrap.appendChild(tipoSel); fila.appendChild(tipoWrap);
+
+  // Campos extra para cobertura (producto + clientes mínimos)
+  const coberturaExtra = document.createElement("div"); coberturaExtra.className = "cobertura-extra";
+  coberturaExtra.style.display = obj.tipo === "cobertura" ? "block" : "none";
+
+  const productoWrap = document.createElement("div"); productoWrap.className = "field";
+  const productoLabel = document.createElement("label"); productoLabel.textContent = "Producto a cubrir"; productoWrap.appendChild(productoLabel);
+  const productoInput = document.createElement("input"); productoInput.type = "text";
+  productoInput.className = "obj-producto"; productoInput.placeholder = "Nombre exacto del producto";
+  productoInput.value = obj.producto || "";
+  productoInput.style.cssText = "width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:0.88rem; box-sizing:border-box;";
+  productoWrap.appendChild(productoInput); coberturaExtra.appendChild(productoWrap);
+
+  const clientesMinWrap = document.createElement("div"); clientesMinWrap.className = "field";
+  const clientesMinLabel = document.createElement("label"); clientesMinLabel.textContent = "Clientes distintos mínimos donde se venda ese producto"; clientesMinWrap.appendChild(clientesMinLabel);
+  const clientesMinInput = document.createElement("input"); clientesMinInput.type = "number";
+  clientesMinInput.className = "obj-clientes-min"; clientesMinInput.placeholder = "Ej: 5"; clientesMinInput.min = "1";
+  clientesMinInput.value = obj.clientesMin || "";
+  clientesMinInput.style.cssText = "width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:0.88rem; box-sizing:border-box;";
+  clientesMinWrap.appendChild(clientesMinInput); coberturaExtra.appendChild(clientesMinWrap);
+
+  fila.appendChild(coberturaExtra);
+
+  // Mostrar/ocultar campos de cobertura según el tipo seleccionado
+  tipoSel.addEventListener("change", () => {
+    coberturaExtra.style.display = tipoSel.value === "cobertura" ? "block" : "none";
+  });
+
+  // Meta
+  const metaWrap = document.createElement("div"); metaWrap.className = "field";
+  const metaLabel = document.createElement("label"); metaLabel.textContent = "Meta a alcanzar"; metaWrap.appendChild(metaLabel);
+  const metaInput = document.createElement("input"); metaInput.type = "number"; metaInput.className = "obj-meta";
+  metaInput.min = "0"; metaInput.placeholder = "Ej: 500000";
+  metaInput.value = obj.meta || "";
+  metaInput.style.cssText = "width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:0.88rem; box-sizing:border-box;";
+  metaWrap.appendChild(metaInput); fila.appendChild(metaWrap);
+
+  // Escalones de comisión
+  const escLabel = document.createElement("label");
+  escLabel.textContent = "Escalones de comisión (% sobre monto vendido del período)";
+  escLabel.style.cssText = "display:block; font-weight:600; font-size:0.85rem; margin-bottom:6px;";
+  fila.appendChild(escLabel);
+
+  const escContainer = document.createElement("div"); escContainer.className = "obj-escalones";
+  const escalones = obj.escalones || [{ desde: 0, hasta: null, porcentaje: 1 }];
+  escalones.forEach(esc => agregarEscalon(escContainer, esc));
+  fila.appendChild(escContainer);
+
+  const btnEsc = document.createElement("button"); btnEsc.type = "button"; btnEsc.className = "btn btn-secondary";
+  btnEsc.textContent = "+ Agregar escalón"; btnEsc.style.cssText = "font-size:0.78rem; padding:5px 10px; margin-bottom:8px;";
+  btnEsc.addEventListener("click", () => agregarEscalon(escContainer));
+  fila.appendChild(btnEsc);
+
+  // Botón quitar objetivo
+  const btnQuitar = document.createElement("button"); btnQuitar.type = "button"; btnQuitar.className = "btn btn-danger";
+  btnQuitar.textContent = "Quitar objetivo"; btnQuitar.style.cssText = "font-size:0.78rem; padding:5px 10px;";
+  btnQuitar.addEventListener("click", () => fila.remove());
+  fila.appendChild(btnQuitar);
+
+  return fila;
+}
+
+function agregarEscalon(container, esc = {}) {
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex; gap:6px; margin-bottom:6px; align-items:center; flex-wrap:wrap;";
+
+  const desdeInput = document.createElement("input"); desdeInput.type = "number"; desdeInput.className = "esc-desde";
+  desdeInput.placeholder = "Desde (%)"; desdeInput.value = esc.desde ?? ""; desdeInput.min = "0";
+  desdeInput.style.cssText = "width:90px; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-size:0.82rem;";
+
+  const hastaInput = document.createElement("input"); hastaInput.type = "number"; hastaInput.className = "esc-hasta";
+  hastaInput.placeholder = "Hasta (vacío=sin límite)"; hastaInput.value = esc.hasta ?? "";
+  hastaInput.style.cssText = "flex:1; min-width:80px; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-size:0.82rem;";
+
+  const pctInput = document.createElement("input"); pctInput.type = "number"; pctInput.className = "esc-porcentaje";
+  pctInput.placeholder = "% comisión"; pctInput.value = esc.porcentaje ?? ""; pctInput.min = "0"; pctInput.step = "0.1";
+  pctInput.style.cssText = "width:100px; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-size:0.82rem;";
+
+  const pctLabel = document.createElement("span"); pctLabel.textContent = "%";
+  pctLabel.style.cssText = "font-size:0.82rem; color:var(--muted);";
+
+  const btnQ = document.createElement("button"); btnQ.type = "button"; btnQ.textContent = "✕";
+  btnQ.style.cssText = "background:none; border:none; color:var(--danger); cursor:pointer; font-size:0.9rem; padding:0 4px;";
+  btnQ.addEventListener("click", () => row.remove());
+
+  row.appendChild(desdeInput); row.appendChild(hastaInput); row.appendChild(pctInput); row.appendChild(pctLabel); row.appendChild(btnQ);
+  container.appendChild(row);
+}
+
+document.getElementById("btn-agregar-objetivo")?.addEventListener("click", () => {
+  const lista = document.getElementById("obj-lista-objetivos");
+  if (!lista) return;
+  if (lista.children.length >= 4) { alert("Máximo 4 objetivos por período."); return; }
+  lista.appendChild(crearFilaObjetivo());
+});
+
+// Guardar objetivos
+document.getElementById("btn-guardar-objetivos")?.addEventListener("click", async () => {
+  const errEl = document.getElementById("obj-error");
+  const okEl = document.getElementById("obj-ok");
+  errEl.textContent = ""; okEl.classList.add("hidden");
+
+  const prevId = document.getElementById("obj-preventista")?.value;
+  const periodoNombre = document.getElementById("obj-periodo-nombre")?.value.trim();
+  const desde = document.getElementById("obj-desde")?.value;
+  const hasta = document.getElementById("obj-hasta")?.value;
+
+  if (!prevId) { errEl.textContent = "Seleccioná un preventista."; return; }
+  if (!periodoNombre || !desde || !hasta) { errEl.textContent = "Completá el nombre del período y las fechas."; return; }
+
+  const filas = document.querySelectorAll("#obj-lista-objetivos .obj-fila");
+  if (filas.length === 0) { errEl.textContent = "Agregá al menos un objetivo."; return; }
+
+  const objetivos = [];
+  let valido = true;
+  filas.forEach(fila => {
+    const tipo = fila.querySelector(".obj-tipo")?.value;
+    const meta = parseFloat(fila.querySelector(".obj-meta")?.value);
+    const producto = fila.querySelector(".obj-producto")?.value.trim() || "";
+    const clientesMin = parseInt(fila.querySelector(".obj-clientes-min")?.value) || 0;
+    if (!tipo || isNaN(meta)) { valido = false; return; }
+    if (tipo === "cobertura" && !producto) { valido = false; return; }
+
+    const escalones = [];
+    fila.querySelectorAll(".obj-escalones > div").forEach(row => {
+      const desde = parseFloat(row.querySelector(".esc-desde")?.value) || 0;
+      const hastaVal = row.querySelector(".esc-hasta")?.value;
+      const pct = parseFloat(row.querySelector(".esc-porcentaje")?.value);
+      if (!isNaN(pct)) escalones.push({ desde, hasta: hastaVal ? parseFloat(hastaVal) : null, porcentaje: pct });
+    });
+    objetivos.push({ tipo, meta, escalones, producto: producto || null, clientesMin: clientesMin || null });
+  });
+
+  if (!valido) { errEl.textContent = "Completá todos los campos de los objetivos."; return; }
+
+  const btn = document.getElementById("btn-guardar-objetivos");
+  btn.disabled = true; btn.textContent = "Guardando…";
+
+  try {
+    const prevNombre = preventistasCache.find(p => p.uid === prevId)?.nombre || "";
+    await addDoc(collection(db, "objetivos_preventista"), {
+      preventistaId: prevId, preventistaNombre: prevNombre,
+      periodoNombre, desde, hasta, objetivos,
+      creadoEn: serverTimestamp(),
+    });
+    okEl.classList.remove("hidden");
+    setTimeout(() => okEl.classList.add("hidden"), 3000);
+    document.getElementById("obj-lista-objetivos").innerHTML = "";
+    document.getElementById("obj-periodo-nombre").value = "";
+    document.getElementById("obj-desde").value = "";
+    document.getElementById("obj-hasta").value = "";
+  } catch (err) {
+    console.error(err); errEl.textContent = "No se pudo guardar. Intentá de nuevo.";
+  } finally {
+    btn.disabled = false; btn.textContent = "Guardar objetivos del período";
+  }
+});
+
+// Resumen de ventas y cálculo de comisiones
+document.getElementById("btn-calcular-resumen")?.addEventListener("click", calcularResumenVentas);
+
+function calcularResumenVentas() {
+  const el = document.getElementById("resumen-ventas-contenido");
+  const prevFiltro = document.getElementById("resumen-preventista")?.value;
+  const desde = document.getElementById("resumen-desde")?.value;
+  const hasta = document.getElementById("resumen-hasta")?.value;
+  if (!el) return;
+
+  if (!desde || !hasta) { el.innerHTML = `<p class="helper-text">Seleccioná un rango de fechas.</p>`; return; }
+
+  const fechaDesde = new Date(desde + "T00:00:00");
+  const fechaHasta = new Date(hasta + "T23:59:59");
+
+  // Filtrar pedidos
+  let pedidos = pedidosPreventistasCache.filter(p => {
+    const f = p.creadoEn?.toDate ? p.creadoEn.toDate() : (p.creadoEn?.seconds ? new Date(p.creadoEn.seconds * 1000) : null);
+    return f && f >= fechaDesde && f <= fechaHasta;
+  });
+  if (prevFiltro) pedidos = pedidos.filter(p => p.preventista === prevFiltro);
+
+  if (pedidos.length === 0) { el.innerHTML = `<p class="helper-text">No hay pedidos en ese período.</p>`; return; }
+
+  // Agrupar por preventista
+  const porPreventista = {};
+  pedidos.forEach(p => {
+    const uid = p.preventista;
+    const nombre = preventistasCache.find(pr => pr.uid === uid)?.nombre || p.preventistaNombre || uid;
+    if (!porPreventista[uid]) porPreventista[uid] = { nombre, pedidos: [], total: 0, clientes: new Set(), productos: {} };
+    porPreventista[uid].pedidos.push(p);
+    porPreventista[uid].total += p.total || 0;
+    porPreventista[uid].clientes.add((p.clienteNombre || "").toUpperCase());
+    (p.items || []).forEach(it => {
+      if (!porPreventista[uid].productos[it.nombre]) porPreventista[uid].productos[it.nombre] = 0;
+      porPreventista[uid].productos[it.nombre] += it.cantidad;
+    });
+  });
+
+  el.innerHTML = "";
+  Object.entries(porPreventista).forEach(([uid, datos]) => {
+    const seccion = document.createElement("div");
+    seccion.style.cssText = "background:var(--bg); border-radius:12px; padding:18px; margin-bottom:16px; border:1px solid var(--border);";
+
+    // Header
+    const titulo = document.createElement("h3");
+    titulo.style.cssText = "font-family:var(--font-display); color:#1a3a6b; text-transform:uppercase; margin:0 0 14px; font-size:1rem;";
+    titulo.textContent = datos.nombre; seccion.appendChild(titulo);
+
+    // Stats
+    const stats = document.createElement("div");
+    stats.style.cssText = "display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:14px;";
+    [
+      { label: "Total vendido", valor: fmt.format(datos.total) },
+      { label: "Pedidos", valor: datos.pedidos.length },
+      { label: "Clientes distintos", valor: datos.clientes.size },
+    ].forEach(s => {
+      const card = document.createElement("div");
+      card.style.cssText = "background:var(--surface); border-radius:8px; padding:10px; text-align:center;";
+      card.innerHTML = `<div style="font-family:var(--font-display); font-size:1.1rem; font-weight:700; color:#1a3a6b;">${s.valor}</div><div style="font-size:0.72rem; color:var(--muted);">${s.label}</div>`;
+      stats.appendChild(card);
+    });
+    seccion.appendChild(stats);
+
+    // Calcular comisiones según objetivos del período
+    const objetivosPreventista = (objetivosCache[uid] || []).filter(obj => obj.desde <= hasta && obj.hasta >= desde);
+    if (objetivosPreventista.length > 0) {
+      const objetivoActivo = objetivosPreventista[objetivosPreventista.length - 1]; // El más reciente
+      const tituloObj = document.createElement("p");
+      tituloObj.style.cssText = "font-weight:700; font-size:0.85rem; margin:0 0 8px;";
+      tituloObj.textContent = `Período: ${objetivoActivo.periodoNombre || "—"}`; seccion.appendChild(tituloObj);
+
+      let comisionTotal = 0;
+      objetivoActivo.objetivos?.forEach(obj => {
+        let actual = 0;
+        if (obj.tipo === "monto") actual = datos.total;
+        else if (obj.tipo === "pedidos") actual = datos.pedidos.length;
+        else if (obj.tipo === "clientes") actual = datos.clientes.size;
+        else if (obj.tipo === "cobertura" && obj.producto) {
+          // Contar clientes distintos que compraron ese producto
+          const clientesConProducto = new Set();
+          datos.pedidos.forEach(p => {
+            const tieneProducto = (p.items || []).some(it =>
+              it.nombre.toLowerCase().includes(obj.producto.toLowerCase())
+            );
+            if (tieneProducto) clientesConProducto.add((p.clienteNombre || "").toUpperCase());
+          });
+          actual = clientesConProducto.size;
+        }
+        const pct = calcularPorcentajeEscalon(actual, obj.meta, obj.escalones);
+        const comisionObj = Math.round(datos.total * pct / 100 * 100) / 100;
+        comisionTotal += comisionObj;
+
+        const filaObj = document.createElement("div");
+        filaObj.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid var(--border); font-size:0.82rem;";
+        const cumple = actual >= obj.meta;
+        const labelTipo = obj.tipo === "cobertura" && obj.producto
+          ? `Cobertura: ${obj.producto} (mín. ${obj.clientesMin || 1} clientes)`
+          : (TIPOS_OBJETIVO[obj.tipo] || obj.tipo);
+        filaObj.innerHTML = `
+          <span>${labelTipo}</span>
+          <span>${actual} / ${obj.meta} ${cumple ? "✓" : ""}</span>
+          <span style="color:${cumple ? "#2d7a4f" : "var(--muted)"};">${pct}% → ${fmt.format(comisionObj)}</span>
+        `;
+        seccion.appendChild(filaObj);
+      });
+
+      const totalComision = document.createElement("div");
+      totalComision.style.cssText = "margin-top:10px; padding:10px; background:#e3f2e1; border-radius:8px; display:flex; justify-content:space-between; font-weight:700;";
+      totalComision.innerHTML = `<span>Comisión total estimada</span><span style="color:#2d7a4f;">${fmt.format(comisionTotal)}</span>`;
+      seccion.appendChild(totalComision);
+    }
+
+    // Top 5 productos
+    const topProductos = Object.entries(datos.productos).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (topProductos.length > 0) {
+      const tituloTop = document.createElement("p");
+      tituloTop.style.cssText = "font-weight:700; font-size:0.82rem; margin:12px 0 6px;";
+      tituloTop.textContent = "Productos más vendidos:"; seccion.appendChild(tituloTop);
+      topProductos.forEach(([nombre, cant]) => {
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex; justify-content:space-between; font-size:0.78rem; padding:3px 0; border-bottom:1px solid var(--border);";
+        row.innerHTML = `<span>${nombre}</span><span>${fmtCantidad(cant)} unid.</span>`;
+        seccion.appendChild(row);
+      });
+    }
+    el.appendChild(seccion);
+  });
+}
+
+function calcularPorcentajeEscalon(actual, meta, escalones) {
+  if (!escalones || escalones.length === 0) return 0;
+  const pct = meta > 0 ? (actual / meta) * 100 : 0;
+  const ordenados = [...escalones].sort((a, b) => b.desde - a.desde);
+  for (const esc of ordenados) {
+    if (pct >= esc.desde && (esc.hasta === null || pct <= esc.hasta)) return esc.porcentaje;
+  }
+  return 0;
+}
+
+document.getElementById("resumen-preventista")?.addEventListener("change", calcularResumenVentas);
+document.getElementById("resumen-desde")?.addEventListener("change", calcularResumenVentas);
+document.getElementById("resumen-hasta")?.addEventListener("change", calcularResumenVentas);
