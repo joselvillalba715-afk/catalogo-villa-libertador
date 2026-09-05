@@ -293,6 +293,7 @@ const tarjetasRegistradas = new Map();
 
 function actualizarTodasLasTarjetas() {
   for (const fn of tarjetasRegistradas.values()) fn();
+  renderSeccionCombos();
 }
 
 function renderNavCategorias(productos) {
@@ -486,20 +487,137 @@ function actualizarControlesCard(controls, p, priceEl) {
 
 // ── Resumen de pedidos ──
 let misPedidos = [];
+let todosLosCombos = [];
+
+// ── Sección combos del día ──
+function renderSeccionCombos() {
+  const seccion = document.getElementById("combos-seccion");
+  const lista = document.getElementById("combos-lista");
+  if (!seccion || !lista) return;
+
+  const combosActivos = todosLosCombos.filter(c => c.activo && (c.productos || []).length >= 2);
+  if (combosActivos.length === 0) { seccion.classList.add("hidden"); return; }
+
+  seccion.classList.remove("hidden");
+  lista.innerHTML = "";
+
+  combosActivos.forEach(combo => {
+    const productos = combo.productos || [];
+    const itemsEnCarrito = productos.filter(({ productoId, cantidad }) => {
+      const item = carrito[productoId];
+      return item && item.cantidad >= cantidad;
+    }).length;
+    const completo = itemsEnCarrito === productos.length;
+
+    const card = document.createElement("div"); card.className = "combo-card";
+    if (completo) card.classList.add("combo-card--completo");
+
+    const header = document.createElement("div"); header.className = "combo-card__header";
+    const badge = document.createElement("span"); badge.className = "combo-card__badge"; badge.textContent = "COMBO ESPECIAL"; header.appendChild(badge);
+    const nombre = document.createElement("h3"); nombre.className = "combo-card__nombre"; nombre.textContent = combo.nombre; header.appendChild(nombre);
+    if (combo.descripcion) { const desc = document.createElement("p"); desc.className = "combo-card__desc"; desc.textContent = combo.descripcion; header.appendChild(desc); }
+    card.appendChild(header);
+
+    const productosWrap = document.createElement("div"); productosWrap.className = "combo-card__productos";
+    productos.forEach(({ productoId, cantidad }) => {
+      const prod = todosLosProductos.find(p => p.id === productoId);
+      const item = document.createElement("div"); item.className = "combo-card__item";
+      const enCarritoOk = carrito[productoId] && carrito[productoId].cantidad >= cantidad;
+      if (enCarritoOk) item.classList.add("combo-card__item--ok");
+      const imgWrap = document.createElement("div"); imgWrap.className = "combo-card__item-img";
+      if (prod?.imagenUrl) { const img = document.createElement("img"); img.src = prod.imagenUrl; img.alt = prod.nombre || ""; img.loading = "lazy"; imgWrap.appendChild(img); }
+      else { imgWrap.textContent = "📦"; }
+      item.appendChild(imgWrap);
+      const info = document.createElement("div"); info.className = "combo-card__item-info";
+      const iNombre = document.createElement("span"); iNombre.className = "combo-card__item-nombre"; iNombre.textContent = prod ? prod.nombre : "Producto"; info.appendChild(iNombre);
+      const iCant = document.createElement("span"); iCant.className = "combo-card__item-cant"; iCant.textContent = `x${fmtCantidad(cantidad)}`; info.appendChild(iCant);
+      if (enCarritoOk) { const tick = document.createElement("span"); tick.className = "combo-card__item-tick"; tick.textContent = "✓"; info.appendChild(tick); }
+      item.appendChild(info); productosWrap.appendChild(item);
+    });
+    card.appendChild(productosWrap);
+
+    // Precios
+    const precioTotal = productos.reduce((acc, { productoId, cantidad }) => {
+      const prod = todosLosProductos.find(p => p.id === productoId);
+      if (!prod) return acc;
+      return acc + (prod.promo && prod.precioPromo != null ? prod.precioPromo : prod.precio || 0) * cantidad;
+    }, 0);
+    const tipoCombo = combo.tipo || "porcentaje";
+    const montoDesc = tipoCombo === "monto" ? Math.min(combo.descuento, precioTotal) : Math.round(precioTotal * Math.min(combo.descuento, 100) / 100 * 100) / 100;
+    const precioFinal = precioTotal - montoDesc;
+
+    const preciosWrap = document.createElement("div"); preciosWrap.className = "combo-card__precios";
+    const pNormal = document.createElement("span"); pNormal.className = "combo-card__precio-normal"; pNormal.textContent = fmt.format(precioTotal); preciosWrap.appendChild(pNormal);
+    const pFinal = document.createElement("span"); pFinal.className = "combo-card__precio-final"; pFinal.textContent = fmt.format(precioFinal); preciosWrap.appendChild(pFinal);
+    const ahorro = document.createElement("span"); ahorro.className = "combo-card__ahorro"; ahorro.textContent = `Ahorrás ${fmt.format(montoDesc)} por combo`; preciosWrap.appendChild(ahorro);
+    card.appendChild(preciosWrap);
+
+    // Progreso
+    const progreso = document.createElement("div"); progreso.className = "combo-card__progreso";
+    const barra = document.createElement("div"); barra.className = "combo-card__barra";
+    const fill = document.createElement("div"); fill.className = "combo-card__barra-fill"; fill.style.width = `${(itemsEnCarrito / productos.length) * 100}%`;
+    barra.appendChild(fill); progreso.appendChild(barra);
+    const progresoTexto = document.createElement("span"); progresoTexto.className = "combo-card__progreso-texto";
+    progresoTexto.textContent = completo ? `✓ Combo completo — descuento de ${fmt.format(montoDesc)} aplicado` : `${itemsEnCarrito} de ${productos.length} productos en tu carrito`;
+    progreso.appendChild(progresoTexto); card.appendChild(progreso);
+
+    if (!completo) {
+      const qtyWrap = document.createElement("div"); qtyWrap.className = "combo-card__qty-wrap";
+      const labelQty = document.createElement("span"); labelQty.className = "combo-card__qty-label"; labelQty.textContent = "¿Cuántos combos querés?"; qtyWrap.appendChild(labelQty);
+      const stepperCombo = crearStepper(1, null, 1, 1); stepperCombo.classList.add("combo-card__stepper"); qtyWrap.appendChild(stepperCombo);
+      card.appendChild(qtyWrap);
+
+      const btnAgregar = document.createElement("button"); btnAgregar.type = "button"; btnAgregar.className = "btn btn-primary btn-block combo-card__btn"; btnAgregar.textContent = "🛒 Agregar combo completo";
+      btnAgregar.style.background = "#1a3a6b";
+      btnAgregar.addEventListener("click", () => {
+        const cantCombos = parseFloat(stepperCombo.querySelector(".qty-stepper__value").textContent) || 1;
+        productos.forEach(({ productoId, cantidad }) => {
+          const prod = todosLosProductos.find(p => p.id === productoId);
+          if (!prod) return;
+          const cantTotal = cantidad * cantCombos;
+          const enCarr = carrito[productoId];
+          const cantAgregar = enCarr ? Math.max(0, cantTotal - enCarr.cantidad) : cantTotal;
+          if (cantAgregar > 0) {
+            agregarAlCarrito({ ...prod, precio: precioSegunVolumen(prod, cantTotal), promo: false, precioPromo: null }, cantAgregar);
+            if (carrito[productoId]) carrito[productoId].precioUnitario = precioSegunVolumen(prod, cantTotal);
+          }
+        });
+        actualizarTodasLasTarjetas();
+        renderSeccionCombos();
+        renderCarrito();
+      });
+      card.appendChild(btnAgregar);
+    }
+    lista.appendChild(card);
+  });
+}
 
 function renderResumen() {
   const desde = document.getElementById("prev-filtro-desde").value;
   const hasta = document.getElementById("prev-filtro-hasta").value;
+  const clienteFiltro = (document.getElementById("prev-filtro-cliente")?.value || "").toLowerCase().trim();
 
   let filtrados = misPedidos;
-  if (desde) filtrados = filtrados.filter(p => {
-    const f = p.creadoEn?.toDate ? p.creadoEn.toDate() : null;
-    return f && f >= new Date(desde + "T00:00:00");
-  });
-  if (hasta) filtrados = filtrados.filter(p => {
-    const f = p.creadoEn?.toDate ? p.creadoEn.toDate() : null;
-    return f && f <= new Date(hasta + "T23:59:59");
-  });
+
+  if (desde) {
+    const fechaDesde = new Date(desde + "T00:00:00");
+    filtrados = filtrados.filter(p => {
+      const f = p.creadoEn?.toDate ? p.creadoEn.toDate() : (p.creadoEn?.seconds ? new Date(p.creadoEn.seconds * 1000) : null);
+      return f && f >= fechaDesde;
+    });
+  }
+  if (hasta) {
+    const fechaHasta = new Date(hasta + "T23:59:59");
+    filtrados = filtrados.filter(p => {
+      const f = p.creadoEn?.toDate ? p.creadoEn.toDate() : (p.creadoEn?.seconds ? new Date(p.creadoEn.seconds * 1000) : null);
+      return f && f <= fechaHasta;
+    });
+  }
+  if (clienteFiltro) {
+    filtrados = filtrados.filter(p =>
+      (p.clienteNombre || "").toLowerCase().includes(clienteFiltro)
+    );
+  }
 
   // Stats
   const totalVendido = filtrados.reduce((acc, p) => acc + (p.total || 0), 0);
@@ -578,9 +696,12 @@ document.getElementById("prev-btn-cerrar-resumen").addEventListener("click", () 
 });
 document.getElementById("prev-filtro-desde").addEventListener("change", renderResumen);
 document.getElementById("prev-filtro-hasta").addEventListener("change", renderResumen);
+document.getElementById("prev-filtro-cliente")?.addEventListener("input", renderResumen);
 document.getElementById("prev-btn-limpiar-filtros").addEventListener("click", () => {
   document.getElementById("prev-filtro-desde").value = "";
   document.getElementById("prev-filtro-hasta").value = "";
+  const clienteEl = document.getElementById("prev-filtro-cliente");
+  if (clienteEl) clienteEl.value = "";
   renderResumen();
 });
 
@@ -592,7 +713,14 @@ function iniciarApp() {
     todosLosProductos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
     document.getElementById("prev-estado")?.classList.add("hidden");
     renderNavCategorias(todosLosProductos);
+    renderSeccionCombos();
     aplicarFiltros();
+  });
+
+  // Suscripción a combos
+  onSnapshot(collection(db, "combos"), (snapshot) => {
+    todosLosCombos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderSeccionCombos();
   });
 
   // Suscripción a mis pedidos
@@ -1090,4 +1218,171 @@ document.getElementById("prev-btn-agenda")?.addEventListener("click", () => {
 });
 document.getElementById("prev-btn-cerrar-agenda")?.addEventListener("click", () => {
   document.getElementById("prev-agenda-panel").classList.add("hidden");
+});
+
+// ============================================================
+// PANEL DE OBJETIVOS DEL PREVENTISTA
+// ============================================================
+
+const TIPOS_OBJETIVO_LABEL = {
+  monto: "Monto total vendido",
+  pedidos: "Cantidad de pedidos",
+  clientes: "Clientes distintos visitados",
+  cobertura: "Cobertura de producto",
+};
+
+function calcularPctEscalon(actual, meta, escalones) {
+  if (!escalones || escalones.length === 0) return 0;
+  const pct = meta > 0 ? (actual / meta) * 100 : 0;
+  const ordenados = [...escalones].sort((a, b) => b.desde - a.desde);
+  for (const esc of ordenados) {
+    if (pct >= esc.desde && (esc.hasta === null || pct <= esc.hasta)) return esc.porcentaje;
+  }
+  return 0;
+}
+
+async function renderObjetivosPreventista() {
+  const el = document.getElementById("prev-objetivos-contenido");
+  if (!el) return;
+  el.innerHTML = `<p class="helper-text">Cargando...</p>`;
+
+  try {
+    // Buscar el objetivo activo más reciente para este preventista
+    const snap = await getDocs(
+      query(collection(db, "objetivos_preventista"),
+        where("preventistaId", "==", preventistaData.uid),
+        orderBy("creadoEn", "desc")
+      )
+    );
+
+    if (snap.empty) {
+      el.innerHTML = `<p class="helper-text" style="text-align:center; padding:20px;">No tenés objetivos asignados todavía.</p>`;
+      return;
+    }
+
+    const objetivo = { id: snap.docs[0].id, ...snap.docs[0].data() };
+    const fechaDesde = new Date(objetivo.desde + "T00:00:00");
+    const fechaHasta = new Date(objetivo.hasta + "T23:59:59");
+    const hoy = new Date();
+
+    // Calcular métricas del período
+    const pedidosPeriodo = misPedidos.filter(p => {
+      const f = p.creadoEn?.toDate ? p.creadoEn.toDate() : (p.creadoEn?.seconds ? new Date(p.creadoEn.seconds * 1000) : null);
+      return f && f >= fechaDesde && f <= Math.min(hoy, fechaHasta);
+    });
+
+    const montoTotal = pedidosPeriodo.reduce((acc, p) => acc + (p.total || 0), 0);
+    const cantPedidos = pedidosPeriodo.length;
+    const clientesDistintos = new Set(pedidosPeriodo.map(p => (p.clienteNombre || "").toUpperCase())).size;
+
+    el.innerHTML = "";
+
+    // Header del período
+    const header = document.createElement("div");
+    header.style.cssText = "margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border);";
+    header.innerHTML = `
+      <p style="font-weight:700; font-size:0.95rem; margin:0 0 4px; color:#1a3a6b;">${objetivo.periodoNombre || "Período actual"}</p>
+      <p style="font-size:0.78rem; color:var(--muted); margin:0;">
+        ${new Date(objetivo.desde + "T12:00:00").toLocaleDateString("es-AR", { day:"2-digit", month:"long" })} 
+        al 
+        ${new Date(objetivo.hasta + "T12:00:00").toLocaleDateString("es-AR", { day:"2-digit", month:"long", year:"numeric" })}
+      </p>
+    `;
+    el.appendChild(header);
+
+    let comisionTotalEstimada = 0;
+
+    // Renderizar cada objetivo con barra de progreso
+    (objetivo.objetivos || []).forEach(obj => {
+      let actual = 0;
+      if (obj.tipo === "monto") actual = montoTotal;
+      else if (obj.tipo === "pedidos") actual = cantPedidos;
+      else if (obj.tipo === "clientes") actual = clientesDistintos;
+      else if (obj.tipo === "cobertura" && obj.producto) {
+        // Clientes distintos que compraron ese producto específico
+        const clientesConProducto = new Set();
+        pedidosPeriodo.forEach(p => {
+          const tieneProducto = (p.items || []).some(it =>
+            it.nombre.toLowerCase().includes(obj.producto.toLowerCase())
+          );
+          if (tieneProducto) clientesConProducto.add((p.clienteNombre || "").toUpperCase());
+        });
+        actual = clientesConProducto.size;
+      }
+      const progresoPct = Math.min((actual / obj.meta) * 100, 100);
+      const cumple = actual >= obj.meta;
+      const pctComision = calcularPctEscalon(actual, obj.meta, obj.escalones);
+      const comisionObj = Math.round(montoTotal * pctComision / 100 * 100) / 100;
+      comisionTotalEstimada += comisionObj;
+
+      // Próximo escalón
+      const pctActual = obj.meta > 0 ? (actual / obj.meta) * 100 : 0;
+      const escalones = [...(obj.escalones || [])].sort((a, b) => a.desde - b.desde);
+      const proxEscalon = escalones.find(e => e.desde > pctActual);
+
+      const wrap = document.createElement("div"); wrap.className = "obj-progress-wrap";
+
+      const headerRow = document.createElement("div"); headerRow.className = "obj-progress-header";
+      const label = document.createElement("span"); label.className = "obj-progress-label";
+      label.textContent = obj.tipo === "cobertura" && obj.producto
+        ? `${TIPOS_OBJETIVO_LABEL.cobertura}: ${obj.producto}`
+        : (TIPOS_OBJETIVO_LABEL[obj.tipo] || obj.tipo);
+      const valor = document.createElement("span"); valor.className = "obj-progress-valor";
+      valor.textContent = obj.tipo === "monto"
+        ? `${fmt.format(actual)} / ${fmt.format(obj.meta)}`
+        : `${actual} / ${obj.meta}`;
+      headerRow.appendChild(label); headerRow.appendChild(valor);
+      wrap.appendChild(headerRow);
+
+      const barraWrap = document.createElement("div"); barraWrap.className = "obj-progress-bar";
+      const fill = document.createElement("div"); fill.className = `obj-progress-fill${cumple ? " obj-progress-fill--completo" : ""}`;
+      fill.style.width = `${progresoPct}%`; barraWrap.appendChild(fill); wrap.appendChild(barraWrap);
+
+      const sub = document.createElement("div"); sub.className = "obj-progress-sub";
+      const subLeft = document.createElement("span");
+      if (cumple) {
+        subLeft.textContent = `✓ Objetivo cumplido — ${pctComision}% comisión`;
+        subLeft.style.color = "#2d7a4f"; subLeft.style.fontWeight = "700";
+      } else if (proxEscalon) {
+        let faltante;
+        if (obj.tipo === "monto") {
+          faltante = fmt.format(Math.ceil(obj.meta * proxEscalon.desde / 100) - actual);
+        } else {
+          faltante = Math.ceil(obj.meta * proxEscalon.desde / 100) - actual;
+          faltante = obj.tipo === "cobertura" ? `${faltante} clientes más` : `${faltante} más`;
+        }
+        subLeft.textContent = `Faltan ${faltante} para ${proxEscalon.porcentaje}% comisión`;
+      } else {
+        subLeft.textContent = `${Math.round(progresoPct)}% completado`;
+      }
+      const subRight = document.createElement("span");
+      subRight.textContent = `Comisión: ${fmt.format(comisionObj)}`;
+      subRight.style.cssText = cumple ? "color:#2d7a4f; font-weight:700;" : "";
+      sub.appendChild(subLeft); sub.appendChild(subRight);
+      wrap.appendChild(sub);
+
+      el.appendChild(wrap);
+    });
+
+    // Total de comisión estimada
+    const totalCard = document.createElement("div"); totalCard.className = "obj-comision-total";
+    totalCard.innerHTML = `
+      <div class="obj-comision-total__monto">${fmt.format(comisionTotalEstimada)}</div>
+      <div class="obj-comision-total__label">Comisión estimada total al día de hoy</div>
+    `;
+    el.appendChild(totalCard);
+
+  } catch (err) {
+    console.error(err);
+    el.innerHTML = `<p class="helper-text">No se pudieron cargar los objetivos.</p>`;
+  }
+}
+
+// Abrir/cerrar panel de objetivos
+document.getElementById("prev-btn-objetivos")?.addEventListener("click", () => {
+  renderObjetivosPreventista();
+  document.getElementById("prev-objetivos-panel").classList.remove("hidden");
+});
+document.getElementById("prev-btn-cerrar-objetivos")?.addEventListener("click", () => {
+  document.getElementById("prev-objetivos-panel").classList.add("hidden");
 });
