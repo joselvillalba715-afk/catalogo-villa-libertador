@@ -972,17 +972,8 @@ function renderCard(p) {
   const metaWrap = document.createElement("div"); metaWrap.className = "product-card__meta";
   const name = document.createElement("h3"); name.className = "product-card__name"; name.textContent = p.nombre; metaWrap.appendChild(name);
   const priceRow = document.createElement("div"); priceRow.className = "product-card__price-row";
+  // Precio tachado solo cuando tiene promo real, no por escalones de volumen
   if (p.promo && p.precioPromo != null && p.enStock !== false) { const oldPrice = document.createElement("span"); oldPrice.className = "product-card__price--old"; oldPrice.textContent = fmt.format(p.precio); priceRow.appendChild(oldPrice); }
-  // Si tiene escalones de volumen, mostrar precio base tachado cuando el escalón da un precio menor
-  const precioMinimoVolumen = p.preciosVolumen && p.preciosVolumen.length > 0
-    ? Math.min(...p.preciosVolumen.map(e => e.precio))
-    : null;
-  if (precioMinimoVolumen != null && precioMinimoVolumen < precioBase && !p.promo) {
-    const oldPriceVol = document.createElement("span");
-    oldPriceVol.className = "product-card__price--old";
-    oldPriceVol.textContent = fmt.format(precioBase);
-    priceRow.appendChild(oldPriceVol);
-  }
   const priceEl = document.createElement("span"); priceEl.className = "product-card__price"; priceEl.textContent = fmt.format(precioBase); priceRow.appendChild(priceEl);
   metaWrap.appendChild(priceRow); body.appendChild(metaWrap);
   if (p.promo && p.promoTexto && p.enStock !== false) { const promoText = document.createElement("p"); promoText.className = "product-card__promo-text"; promoText.textContent = p.promoTexto; metaWrap.appendChild(promoText); }
@@ -1050,14 +1041,6 @@ function actualizarControlesCard(controls, p, priceEl) {
     });
     const precioActual = precioSegunVolumen(p, cantidad);
     if (priceEl) priceEl.textContent = fmt.format(precioActual);
-    // Mostrar/ocultar precio tachado según si el escalón da descuento sobre el precio base
-    const precioBase = p.promo && p.precioPromo != null ? p.precioPromo : p.precio || 0;
-    const oldPriceEl = priceEl?.parentElement?.querySelector(".product-card__price--old:last-of-type");
-    if (oldPriceEl && precioActual < precioBase) {
-      oldPriceEl.style.display = "";
-    } else if (oldPriceEl) {
-      oldPriceEl.style.display = "none";
-    }
   }
 
   if (enCarrito) {
