@@ -2378,3 +2378,127 @@ function calcularPorcentajeEscalon(actual, meta, escalones) {
 document.getElementById("resumen-preventista")?.addEventListener("change", calcularResumenVentas);
 document.getElementById("resumen-desde")?.addEventListener("change", calcularResumenVentas);
 document.getElementById("resumen-hasta")?.addEventListener("change", calcularResumenVentas);
+
+
+// ---------- Exportar productos a Excel ----------
+function cargarExcelJS() {
+  if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
+    s.onload = () => resolve(window.ExcelJS);
+    s.onerror = () => reject(new Error("No se pudo cargar la librería de Excel"));
+    document.head.appendChild(s);
+  });
+}
+
+async function descargarImagen(url) {
+  try {
+    const r = await fetch(url, { mode: "cors" });
+    if (!r.ok) return null;
+    const blob = await r.blob();
+    const buf = await blob.arrayBuffer();
+    const t = (blob.type || "").toLowerCase();
+    const ext = t.includes("png") ? "png" : t.includes("jpeg") || t.includes("jpg") ? "jpeg" : t.includes("gif") ? "gif" : null;
+    return ext ? { buf, ext } : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+document.getElementById("btn-exportar-productos")?.addEventListener("click", async () => {
+  const btn = document.getElementById("btn-exportar-productos");
+  const estado = document.getElementById("exportar-estado");
+  if (!productosCache.length) {
+    estado.textContent = "No hay productos para exportar.";
+    return;
+  }
+  btn.disabled = true;
+  try {
+    estado.textContent = "Preparando Excel…";
+    const ExcelJS = await cargarExcelJS();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Productos");
+    ws.columns = [
+      { header: "Foto", key: "foto", width: 14 },
+      { header: "Código", key: "codigo", width: 14 },
+      { header: "Nombre", key: "nombre", width: 38 },
+      { header: "Categoría", key: "categoria", width: 22 },
+      { header: "Precio", key: "precio", width: 12 },
+      { header: "En stock", key: "enStock", width: 10 },
+      { header: "Promo", key: "promo", width: 8 },
+      { header: "Precio promo", key: "precioPromo", width: 13 },
+      { header: "Texto promo", key: "promoTexto", width: 28 },
+      { header: "Fraccionable", key: "fraccionable", width: 13 },
+      { header: "Destacado", key: "destacado", width: 11 },
+      { header: "Mínimo compra", key: "minimoCompra", width: 14 },
+      { header: "Escalón 1 (cant.)", key: "c1", width: 14 },
+      { header: "Escalón 1 (precio)", key: "p1", width: 14 },
+      { header: "Escalón 2 (cant.)", key: "c2", width: 14 },
+      { header: "Escalón 2 (precio)", key: "p2", width: 14 },
+      { header: "Escalón 3 (cant.)", key: "c3", width: 14 },
+      { header: "Escalón 3 (precio)", key: "p3", width: 14 },
+      { header: "Orden", key: "orden", width: 8 },
+      { header: "URL imagen", key: "imagenUrl", width: 50 },
+    ];
+    ws.getRow(1).font = { bold: true };
+    ws.views = [{ state: "frozen", ySplit: 1 }];
+    const si = (v) => (v ? "Sí" : "No");
+    const lista = [...productosCache].sort(
+      (a, b) => (a.categoria || "").localeCompare(b.categoria || "") || (a.orden ?? 0) - (b.orden ?? 0)
+    );
+    let i = 0;
+    let sinFoto = 0;
+    for (const p of lista) {
+      i++;
+      estado.textContent = `Procesando ${i} de ${lista.length}…`;
+      const v = Array.isArray(p.preciosVolumen) ? p.preciosVolumen : [];
+      const row = ws.addRow({
+        codigo: p.codigo || "",
+        nombre: p.nombre || "",
+        categoria: p.categoria || "",
+        precio: p.precio ?? "",
+        enStock: si(p.enStock !== false),
+        promo: si(p.promo),
+        precioPromo: p.precioPromo ?? "",
+        promoTexto: p.promoTexto || "",
+        fraccionable: si(p.fraccionable),
+        destacado: si(p.destacado),
+        minimoCompra: p.minimoCompra ?? "",
+        c1: v[0]?.cantidad ?? "", p1: v[0]?.precio ?? "",
+        c2: v[1]?.cantidad ?? "", p2: v[1]?.precio ?? "",
+        c3: v[2]?.cantidad ?? "", p3: v[2]?.precio ?? "",
+        orden: p.orden ?? "",
+        imagenUrl: p.imagenUrl || "",
+      });
+      row.alignment = { vertical: "middle" };
+      row.height = 70;
+      if (p.imagenUrl) {
+        const img = await descargarImagen(p.imagenUrl);
+        if (img) {
+          const id = wb.addImage({ buffer: img.buf, extension: img.ext });
+          ws.addImage(id, { tl: { col: 0.1, row: row.number - 1 + 0.05 }, ext: { width: 85, height: 85 }, editAs: "oneCell" });
+        } else {
+          sinFoto++;
+          row.getCell("foto").value = { text: "Ver foto", hyperlink: p.imagenUrl };
+        }
+      }
+    }
+    estado.textContent = "Generando archivo…";
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `catalogo-productos-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    estado.textContent = `✅ ${lista.length} productos exportados.` + (sinFoto ? ` ${sinFoto} fotos no se pudieron incrustar (quedó el link).` : "");
+  } catch (e) {
+    console.error(e);
+    estado.textContent = "Error al exportar: " + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
